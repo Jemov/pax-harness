@@ -8,7 +8,7 @@
     "ru": "Чаты ВИ, игровые инструменты, 39 видов диаграмм, таблицы, снимки игрового окна и иллюстрации через настроенный генератор игры.",
     "en": "Assistant chats, game tools, 39 chart types, tables, game screenshots and illustrations through the configured game image service."
   },
-  "version": "1.10.0",
+  "version": "1.10.1",
   "api": 1,
   "game_version": ">=0.31.0",
   "authors": [
@@ -20,7 +20,7 @@
     "ui",
     "ai"
   ],
-  "entry": "main.gd",
+  "entry": "src/main.gd",
   "load_after": [
     "ai_tuning",
     "prompt_lab_local"

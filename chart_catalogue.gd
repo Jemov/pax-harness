@@ -1,0 +1,44 @@
+extends RefCounted
+## Schemas are requested individually, never attached wholesale to model context.
+const Chart = preload("res://mods/pax_harness/chat_chart.gd")
+const Extra = preload("res://mods/pax_harness/chart_extra_spec.gd")
+const SCHEMAS := {
+	"gantt":{"fields":{"tasks":"{id:string,label:string,start:number,end:number,progress?:number0..1,status?:planned|active|blocked|complete}[1..64]","dependencies":"optional {source:task_id,target:task_id}[0..128] DAG","now":"optional number on the SAME time scale"},"rules":"Numeric campaign days or another declared common time unit; end>=start, equality is a milestone. Actual recorded dates and progress only; unknown progress must be omitted. Acyclic dependencies between existing tasks. Illustrative schedules require basis=scenario. Drawing submits no orders."},
+	"network":{"fields":{"nodes":"{id:string,label:string,value?:nonnegative_number,group?:string}[1..64]","links":"{source:node_id,target:node_id,value?:positive_number,label?:string}[0..128]","directed":"optional boolean, default false"},"rules":"Actual relationships, cycles and disconnected nodes allowed; self-links rejected. Weight controls edge thickness; node value controls area. Do not invent bilateral trade from aggregate exports. Force layout is not geographic distance."},
+	"sunburst":{"fields":{"nodes":"{id:string,label:string,parent?:node_id,value?:nonnegative_number}[2..128]"},"rules":"Exactly one rooted hierarchy, depth<=8, no cycles or orphans. ONLY leaves have value (required, nonnegative); internal totals are derived sums. Positive total. Same additive measure and unit; no double counting. Actual parent IDs, not guessed hierarchy. Click a sector to drill into a branch; center and reset return to root."},
+	"bar":{"fields":{"labels":"string[1..60]","series":"{name:string,values:number[]} [1..4]"},"rules":"Horizontal categories, finite numbers; same length for every series."},
+	"line":{"fields":{"labels":"string[2..241]","series":"{name:string,values:number[]} [1..4]","x":"optional strictly increasing number[]","curve":"linear|smooth","breaks":"optional sorted integer[]: index beginning a new segment"},"rules":"Same-length arrays. Smooth is shape-preserving interpolation, not observations. Separate units/scales. Null values split a line without zero filling. Missing intervals and poles need breaks; never connect them."},
+	"scatter":{"fields":{"labels":"string[1..241]","x":"number[]","series":"{name:string,values:number[]} [1..4]"},"rules":"Paired observations; all arrays same length. x may repeat or be unsorted. Association does not establish causation."},
+	"bubble":{"extends":"scatter","fields":{"sizes":"nonnegative number[], positive maximum","size_label":"string"},"rules":"A third comparable measure controls circle AREA, not radius. Unknown sizes must be excluded, not zero-filled."},
+	"heatmap":{"fields":{"labels":"row names string[1..24]","columns":"column names string[1..24]","matrix":"(number|null)[][]"},"rules":"Rectangular matrix; null is missing and gray. Correlation matrices require paired observations and an actual correlation calculation, not arbitrary color values."},
+	"sankey":{"fields":{"nodes":"{id:string,label:string}[2..32]","links":"{source:node_id,target:node_id,value:positive_number}[1..64]"},"rules":"Directed acyclic measured flows, all in the same unit and period. Do not invent balancing flows or bilateral partners from an aggregate export total."},
+	"treemap":{"fields":{"labels":"string[1..60]","series":"JSON array [{name:string,values:nonnegative_number[]}] with exactly one object"},"rules":"Area is a share of one positive additive total; unknown values are not zero."},
+	"waterfall":{"fields":{"labels":"string[1..60]","series":"JSON array [{name:string,values:number[]}] with exactly one object","total_indices":"optional integer[]"},"rules":"Values are signed deltas; explicitly marked total_indices are absolute totals from zero. Do not confuse a stock and its change."},
+	"histogram":{"fields":{"samples":"raw number[1..1000]","bins":"integer 2..40, default10"},"rules":"Individual observations of one comparable measure; not a list of totals mistaken for household data. Renderer computes counts."},
+	"boxplot":{"fields":{"boxes":"{label,min,q1,median,q3,max}[1..24]"},"rules":"Calculate quartiles from real samples and name the quartile convention; ordered five-number summaries, whiskers here are min/max."},
+	"radar":{"fields":{"labels":"string[3..12]","series":"{name,values:nonnegative_number[]} [1..4]","max":"positive number, default100"},"rules":"All axes must use an explicitly justified common normalized scale; raw population, money and percentages cannot be mixed."},
+	"choropleth":{"fields":{"regions":"{id,label,value:number|null,polygons: normalized_xy[][],center?:normalized_xy}[1..64]","aspect":"positive width/height <=20"},"rules":"Use real geographic polygons, not made-up rectangles. charts.map reads native province geometry. Mod-provided geometry is accepted in this same safe numeric schema. Coordinates 0..1, max2048 vertices/polygon, 12000 overall; missing values gray. Rates/density and totals answer different questions."},
+	"cartogram":{"fields":{"regions":"{id,label,value:number|null,center?:normalized_xy}[1..64]"},"rules":"Explicitly SCHEMATIC equal-tile cartogram, color encodes value. It is not an area-distorted or precise geographic map. charts.map supplies real relative centers."},
+	"density":{"fields":{"groups":"{name,samples:number[2..1000]}[1..12]","bandwidth":"optional positive number"},"rules":"At most1000 samples overall. Gaussian KDE estimate; renderer shows n and small-sample warnings. Not household incomes unless actual household observations are supplied. Same variable/unit for all groups."}
+}
+static func execute(args: Dictionary) -> Dictionary:
+	var kind: String = str(args.get("type",""))
+	if kind == "table":
+		return {"ok":true,"result":{"type":"table","format":"Markdown pipe table: header row, separator row, data rows. Escape literal pipes as \\|. Alignment markers :---, :---:, ---:. Keep all values; do not squeeze unrelated units into a single cell.","features":"Client-side search, numeric/text sorting, frozen headers, 50-row pages, lossless CSV copy/export. Extra row cells are preserved in generated columns and flagged.","data_policy":"Read actual source pages or prepared dataset pages on demand; never invent missing rows. Tables are presentation, not world actions."}}
+	if kind in Extra.Extended.TYPES:
+		return {"ok":true,"result":{"type":kind,"common":{"title":"required text <=500","source":"required actual provenance <=500","basis":"observed|scenario|forecast","unit":"common declared comparable unit"},"schema":dict(Extra.Extended.SCHEMAS[kind],kind),"display":"Complete pax-chart JSON fence, or datasets.chart display_ref. Request only needed source fields/pages; unknown is never zero."}}
+	var canonical: String = {"column":"bar","stacked_column":"bar","stacked_bar":"bar","area":"line","stacked_area":"bar","pie":"treemap","donut":"treemap","violin":"density","ridgeline":"density"}.get(kind,kind)
+	if not SCHEMAS.has(canonical): return {"ok":false,"code":"charts.unknown_type"}
+	var schema: Dictionary = SCHEMAS[canonical].duplicate(true)
+	if schema.has("extends"): schema["base"] = SCHEMAS[schema.extends].duplicate(true)
+	var rules: String = str(schema.rules)
+	if kind in ["stacked_bar","stacked_column","stacked_area"]: rules += " All values nonnegative, 1..4 additive series, at most60 labels. stacked_area optionally accepts strictly increasing x."
+	if kind in ["pie","donut"]: rules += " series MUST be a JSON ARRAY containing exactly one object, never a bare object. At most12 categories, positive total."
+	if kind in ["pie","donut","treemap","waterfall"]:
+		schema["example"] = {"type":kind,"title":"Учебный пример","source":"Учебные данные, не состояние партии","basis":"scenario","labels":["А","Б"],"series":[{"name":"Значения","values":[60,40]}]}
+	return {"ok":true,"result":{"type":kind,"common":{"type":kind,"title":"descriptive string <=500","source":"actual source, date/period and coverage <=500","unit":"optional string <=40","basis":"observed|scenario|forecast, default observed","x_label":"optional string <=80","y_label":"optional string <=80"},"schema":schema,"rules":rules,"display":"Complete fenced pax-chart JSON. charts.function/charts.map instead return display_ref: put that short object into the fence in this same reply; full arrays remain in the saved receipt.","data_policy":"Any installed mod may supply observations in this schema. Request only relevant fields/pages through available tools. Unknown is not zero; do not run code or fetch external assets from a chart. No data is loaded by describing a type."}}
+
+static func dict(schema: Dictionary, kind: String) -> Dictionary:
+	var result: Dictionary = schema.duplicate(true)
+	result["example"] = Extra.Extended.example(kind)
+	return result

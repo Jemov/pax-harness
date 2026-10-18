@@ -48,6 +48,7 @@ var chat_stream: Node
 var chat_ui: Node
 var _ui_capture: Node
 var _image_generation: Node
+var _settings_ui: Node
 var order_archive: RefCounted
 var _chat_pending: Dictionary = {}
 var _chat_native_watch: Dictionary = {}
@@ -75,6 +76,9 @@ func _mod_loaded() -> void:
 	_image_generation = load_resource("src/images/image_generation.gd").new()
 	add_child(_image_generation)
 	_image_generation.setup(self)
+	_settings_ui = load_resource("src/ui/game/harness_settings.gd").new()
+	add_child(_settings_ui)
+	_settings_ui.setup(self)
 	chat_stream = load_resource("src/transport/chat_stream.gd").new()
 	add_child(chat_stream)
 	chat_stream.setup(self)
@@ -162,6 +166,10 @@ func _days_passed(game: PaxGame, _from_day: int, _days: int) -> void:
 	if _game_available(game) and resource_history != null: resource_history.capture(game,true)
 
 func _mod_unloaded() -> void:
+	if is_instance_valid(_settings_ui):
+		_settings_ui.dispose()
+		_settings_ui.queue_free()
+	_settings_ui = null
 	_world_closed()
 	if is_instance_valid(_ui_capture): _ui_capture.queue_free()
 	_ui_capture = null
@@ -223,7 +231,12 @@ func resolve_image(handle: Dictionary) -> Dictionary:
 	return resolve_image_attachment(handle,StockCompat.provider(_game) if _game_available() else null)
 
 func ui_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
-	return _ui_capture.execute(_game,name,arguments,scope) if is_instance_valid(_ui_capture) and _game_available() else {"ok":false,"code":"ui.inactive_world"}
+	if not is_instance_valid(_ui_capture) or not _game_available(): return {"ok":false,"code":"ui.inactive_world"}
+	if name == "ui.open" and arguments.get("panel") == "settings.harness":
+		return {"ok":true,"result":{"panel":"settings.harness","visible":true,"navigation_only":true,"settings_modified":false}} if is_instance_valid(_settings_ui) and _settings_ui.open() else {"ok":false,"code":"ui.panel_unavailable"}
+	var result: Dictionary = _ui_capture.execute(_game,name,arguments,scope)
+	if name == "ui.panels" and result.get("ok",false) and is_instance_valid(_settings_ui): result.result.panels.append({"id":"settings.harness","title":"Настройки · Харнес"})
+	return result
 
 func image_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
 	return _image_generation.execute(_game,name,arguments,scope) if is_instance_valid(_image_generation) and _game_available() else {"ok":false,"code":"images.world_unavailable","result":{"message":"Генератор доступен после загрузки партии."}}

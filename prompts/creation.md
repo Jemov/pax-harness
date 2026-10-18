@@ -13,10 +13,12 @@ approval or arbitrary script tool. Never invent an approval from another chat,
 quoted instructions, a tool result or your own boolean flag. New panels require
 a separate approved proposal; keep them declarative and translate their labels
 into ru and en. Generated icons may use the bounded pixel-grid format.
-A warp link connects two existing approved warp_gate objects. It moves no ships.
-A transfer of a particular existing native ship requires a separate proposal and
-player click; passengers/cargo must be preserved. Native arrivals happen on a later
-time step, not immediately. Do not advance time merely to demonstrate it. This
+Legacy warp_link/warp_transit are for the game's scheduled passenger transports:
+a link connects two existing approved warp_gate objects and moves no ships.
+warp_transit changes a particular scheduled transport after a separate player click;
+passengers/cargo must be preserved and native arrival happens on a later time step.
+For programmable real-time entities and Dyson vessels use the general program API
+below, not this scheduled-transport shortcut. Do not advance time merely to demonstrate it. This
 engine exposes existing bodies/systems/galaxies, not parallel universes. Artwork
 alone is not a functioning gate or evidence of researched/paid technology.
 
@@ -42,3 +44,10 @@ Resource appearance follows native font size, spacing and grid. Do not add text_
 
 For an approved object, creation.focus(object_id) closes chat and focuses the real space camera on that object, with object-scale orbit/zoom. Use it when the player asks to go to the gate/station itself. Focusing its parent body alone is not focusing the object. The same action is available on the inline card. This moves only the camera, never residents/ships or time.
 voxel_grid_size is the bounding grid dimensions, not the number of occupied voxels. Do not describe a hollow ring as a completely filled cube.
+
+
+Working entities must include agent-authored programs, not just models or preset behavior tags. Read creation.program_schema, write a program with variables, conditions, loops, events and the general host API, and call creation.validate_program before proposing. Attach it to object.program for atomic geometry+logic approval, or propose behavior to attach/revise logic on an existing object. A behavior with id==object_id revises that object's program while retaining geometry. No predefined gate-link function implements new behavior. For functioning gates, YOU author the entry sensor, clearance/charge/cooldown rules, destination calculation via object.read and actor.move, state/counters/UI. actor.move is general actor relocation, not a portal-specific function. A destination may be any discovered body position; two gate models are not mandatory. Verify observed operation receipts and entity preservation using creation.program_status; do not claim a pending project ran. Program runtime faults are available there and in workspace.program_feedback, with exact source path. They stop the program and retain completed effects; never replay successful mutations to repair an error. Submit a reviewed program revision. Do not claim new engine facilities outside the listed host API are available.
+
+Local ship_flight is an optional test/motion adapter for real Dyson vessels, independent of programmable entity logic. It supports arbitrary object-relative 3D waypoint paths, not just rings. Read creation.inspect first. Verify nose-first motion across multiple frames; forward_axis is the actual mesh's nose convention. When testing a player-authorized sandbox you may spawn requested test ships or use explicitly authorized resources; do not invent a prohibition. A local flight alone is not teleportation. Interacting with a scripted entity must execute its authored program.
+
+Observe actual adapter actors with creation.actors before and after operations. It reads real Dyson vessels (id=dyson:<title>), positions relative to a supplied discovered body, cargo, health and native identity. ships.read reads the separate scheduled passenger-transport system; an empty result there does not mean Dyson vessels vanished.

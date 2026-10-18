@@ -1,15 +1,20 @@
 extends RefCounted
 ## Declarative content only. No scripts, URLs, paths or model-controlled callbacks.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
-const KINDS := ["object","resource","panel","warp_link","warp_transit","surface","resource_style","object_damage"]
+const KINDS := ["object","resource","panel","warp_link","warp_transit","surface","resource_style","object_damage","ship_flight","behavior"]
 const SHAPES := ["box","sphere","cylinder","torus","line"]
 static func definitions() -> Array:
 	var result: Array = []
 	for item: Array in [
+		["creation.actors","Observe actual native actors through enabled adapters. Current adapter: Dyson player vessels, NOT the game's scheduled passenger transports from ships.read. Supply a discovered reference body; optionally one id=dyson:<ship title>, otherwise page the list. Returns actual position_km relative to that body, body_frame, entity_id, cargo, health and star. Read before and after program operations.",{"body":{"type":"string","maxLength":160},"id":{"type":"string","maxLength":240},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":64}},["body"]],
+		["creation.program_schema","Read the entity programming language, events, expressions, statements and general world-operation schemas. No preset portal logic. Read before writing object.program or a behavior project.",{},[]],
+		["creation.validate_program","Compile-check a proposed entity program without executing it. Returns an exact source path and cause on failure.",{"program":{"type":"object"}},["program"]],
+		["creation.program_status","Read an applied entity/behavior program's actual state, errors and observed operation receipts. Never infer execution success from geometry or text.",{"id":{"type":"string","maxLength":48}},["id"]],
+		["creation.inspect","Read the full declarative model and saved state of one approved object, including geometry and damage, before planning a local 3D route. No world change.",{"object_id":{"type":"string","maxLength":48}},["object_id"]],
 		["creation.focus","Move the actual space camera to a specific approved object, not just its parent planet. Closes chat and frames the object's real geometry. Camera only: no physical travel or time advance.",{"object_id":{"type":"string","maxLength":48}},["object_id"]],
 		["creation.capabilities","Read supported declarative content, voxel model format, resource classes and actual limitations. No creation or map generation.",{},[]],
 		["creation.list","Read this campaign's created objects/resources/panels/warp links and pending player-review projects. Never implies a pending project was applied.",{},[]],
-		["creation.propose","ONLY when the current player explicitly asks to add/create content: prepare ONE declarative project for PLAYER REVIEW. This does NOT create anything in the world. The player must click Apply in its review card; there is NO apply tool. Object model is bounded voxel JSON, resource starts at zero, panel is labelled rows only, warp_link joins two existing approved warp_gate objects, warp_transit reroutes one existing ship through an approved link. No scripts or arbitrary UI/code. First read creation.capabilities for exact formats. Never propose unsolicited content or claim a pending project was created.",{"kind":{"type":"string","enum":KINDS},"definition":{"type":"object","additionalProperties":true}},["kind","definition"]]
+		["creation.propose","ONLY when the current player explicitly asks to add/create content: prepare ONE declarative project for PLAYER REVIEW. This does NOT create anything in the world. The player must click Apply in its review card; there is NO apply tool. Object model is bounded voxel JSON, resource starts at zero, panel is labelled rows only, warp_link joins two existing approved warp_gate objects, warp_transit reroutes one existing ship through an approved link. Programmable entities use the bounded language from creation.program_schema; arbitrary native code is unavailable. First read creation.capabilities for exact formats. Never propose unsolicited content or claim a pending project was created.",{"kind":{"type":"string","enum":KINDS},"definition":{"type":"object","additionalProperties":true}},["kind","definition"]]
 	]:
 		result.append({"name":item[0],"id":item[0],"description":item[1],"arguments_schema":{"type":"object","properties":item[2],"required":item[3],"additionalProperties":false},"mutates_world":false,"handler_kind":"public_game_facade","capability":"player_reviewed_declarative_content","after_state":"Actual campaign content or pending proposal. No world change until the player applies a specific proposal in the UI."})
 	return result
@@ -18,6 +23,17 @@ static func keys(value: Dictionary, allowed: Array, required: Array = []) -> boo
 	return required.all(func(key: String): return value.has(key)) and value.keys().all(func(key: Variant): return key in allowed)
 static func identifier(value: Variant) -> bool:
 	return value is String and RegEx.create_from_string("^[a-z][a-z0-9_]{0,47}$").search(value) != null
+static func model_id(value: Variant) -> bool:
+	return value is String and RegEx.create_from_string("^[a-z][a-z0-9_.-]{0,79}$").search(value)!=null and not value.contains("..")
+static func flight_path(value: Variant) -> bool:
+	if not value is Array or value.size()<2 or value.size()>16: return false
+	if not value.all(func(p: Variant): return vector(p,3,-100000,100000)): return false
+	var total:=0.0
+	for i: int in range(1,value.size()):
+		var segment:=Vector3(value[i][0]-value[i-1][0],value[i][1]-value[i-1][1],value[i][2]-value[i-1][2]).length()
+		if segment<0.001: return false
+		total+=segment
+	return total<=1000000
 static func number(value: Variant, low: float, high: float) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value)>=low and float(value)<=high
 static func label(value: Variant) -> bool:
@@ -65,9 +81,11 @@ static func validate(kind: String, definition: Variant) -> Dictionary:
 	var ok := false
 	match kind:
 		"object":
-			ok = keys(d,["id","name","body","model","icon","longitude","latitude","altitude_km","size_km","behavior","destructible"],["id","name","body","model","icon","longitude","latitude","altitude_km","size_km"])
+			ok = keys(d,["id","name","body","model","icon","longitude","latitude","altitude_km","size_km","behavior","destructible","program"],["id","name","body","model","icon","longitude","latitude","altitude_km","size_km"])
 			ok = ok and (not d.has("destructible") or d.destructible is bool)
-			ok = ok and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and d.body.length()<=160 and model(d.get("model")) and icon(d.get("icon")) and number(d.get("longitude"),-180,180) and number(d.get("latitude"),-90,90) and number(d.get("altitude_km"),0,1e9) and number(d.get("size_km"),0.001,1e7) and d.get("behavior","decoration") in ["decoration","warp_gate"]
+			ok = ok and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and d.body.length()<=160 and model(d.get("model")) and icon(d.get("icon")) and number(d.get("longitude"),-180,180) and number(d.get("latitude"),-90,90) and number(d.get("altitude_km"),0,1e9) and number(d.get("size_km"),0.001,1e7) and identifier(d.get("behavior","decoration"))
+		"behavior":
+			ok=keys(d,["id","name","object_id","program","preserve_state"],["id","name","object_id","program"]) and identifier(d.get("id")) and label(d.get("name")) and identifier(d.get("object_id")) and (not d.has("preserve_state") or d.preserve_state is bool)
 		"resource":
 			ok = keys(d,["id","name","body","goods_class","unit","price","icon","text_color"],["id","name","body","goods_class","unit","price","icon"])
 			ok = ok and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and d.get("goods_class") is String and d.get("unit") is String and d.unit.length()<=40 and number(d.get("price"),0,1e12) and icon(d.get("icon")) and (not d.has("text_color") or color(d.text_color))
@@ -89,6 +107,13 @@ static func validate(kind: String, definition: Variant) -> Dictionary:
 			ok = keys(d,["id","name","body","altitude_km","provinces_count","climate"],["id","name","body","altitude_km","provinces_count","climate"]) and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and number(d.get("altitude_km"),100,1e8) and number(d.get("provinces_count"),4,40) and float(d.provinces_count)==floorf(float(d.provinces_count)) and d.get("climate") is Dictionary
 			if ok:
 				ok = keys(d.climate,["temperature","water","biomass","radiation","atmosphere","urban","magnetic"],["temperature","water","biomass","radiation","atmosphere","urban","magnetic"]) and d.climate.values().all(func(v: Variant): return number(v,0,1)) and float(d.climate.urban)==0.0
+		"ship_flight":
+			ok = keys(d,["id","name","gate_id","object_id","ship_name","spawn_model","ship_length_km","duration_seconds","forward_axis","waypoints_km"],["id","name","ship_name","ship_length_km","duration_seconds"]) and identifier(d.get("id")) and label(d.get("name"))
+			ok = ok and (d.has("gate_id")!=d.has("object_id")) and identifier(d.get("object_id",d.get("gate_id")))
+			ok = ok and d.get("ship_name") is String and d.ship_name.strip_edges().length()>0 and d.ship_name.length()<=80 and number(d.get("ship_length_km"),0.01,100) and number(d.get("duration_seconds"),5,120) and (not d.has("spawn_model") or model_id(d.spawn_model)) and d.get("forward_axis","-z") in ["-z","+z","-x","+x"] and (not d.has("waypoints_km") or flight_path(d.waypoints_km))
 		"warp_transit":
 			ok = keys(d,["link_id","ship_id"],["link_id","ship_id"]) and identifier(d.get("link_id")) and number(d.get("ship_id"),1,2147483647) and float(d.ship_id)==floorf(float(d.ship_id))
+	if ok and d.has("program"):
+		var compiled: Dictionary=preload("res://mods/pax_harness/src/creation/program_spec.gd").validate(d.program)
+		if not compiled.ok: return compiled
 	return {"ok":true,"definition":d.duplicate(true)} if ok else {"ok":false,"code":"creation.invalid_"+kind+"_definition"}

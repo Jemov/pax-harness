@@ -36,7 +36,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.15.1.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.16.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 
@@ -102,3 +102,14 @@ Model projects appear directly in chat messages. Drag to rotate, scroll to zoom,
 Ordinary voxel models need no optional component. Detached destructible objects require **Voxel Tools**. Enable Destruction in an applied object card and click the model to remove a region of its voxel volume. Damage persists with the campaign. The agent can propose a separate damage operation when explicitly requested. This does not add automatic combat, debris or portal animation.
 
 Use **Go to object** on an applied model card to close chat and frame the actual object in space, rather than only its parent planet. Standard orbit controls and object-scale wheel zoom remain available. The agent can also use creation.focus for the same camera action.
+
+**Local 3D ship routes:** with Dyson Sphere Program enabled, the assistant can prepare a route for a real vessel relative to a created object: approach, fly around it or cross a ring. It chooses the model, size, nose direction and waypoints. Apply the card, then use Replay flight. Routes persist with the campaign; a new normal ship order restores native control. The route controls motion. An agent-authored object program defines crossing reactions, relocation, charge costs or health changes; physical collision simulation is not included.
+
+
+### Programmable entities
+
+Ask the assistant to create both a model and its working behavior. It writes a program using state variables, conditions, loops, timers, day changes, volume entry and plane crossings. General host operations read game data, move real ships and authored objects, change ship health, modify native colony stock or damage a voxel object. Available actions depend on installed adapters; the assistant composes the behavior rather than selecting a predefined gate mechanic.
+
+Apply the reviewed model and program together in the chat card. Its fields and buttons work in that card. Events then run independently, and state persists with the campaign. You can pause a program; revisions require another approval. A fault stops that program and reports its exact cause and source path to the assistant. Completed world actions remain in effect.
+
+For example, request floating gates, an exit near another body, charge and hull-clearance checks, a transfer counter and a recharge button. With Dyson Sphere Program installed, the authored program can relocate the same native ship to a calculated destination while retaining cargo and health. It uses general operations rather than a built-in gate-link behavior. See the [program format](entity-programs.en.md).

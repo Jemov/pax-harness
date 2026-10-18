@@ -298,7 +298,9 @@ func analysis_delegate(args: Dictionary, scope: Dictionary) -> Node:
 	return job
 
 func workspace_context(chat_id: String) -> Dictionary:
-	return Workspace.context(chat_store,chat_id) if chat_store != null else {}
+	var result: Dictionary=Workspace.context(chat_store,chat_id) if chat_store != null else {}
+	if is_instance_valid(_creations) and is_instance_valid(_creations.programs): result["program_feedback"]=_creations.programs.feedback(chat_id)
+	return result
 
 func analysis_context() -> Dictionary:
 	return {"date":_game.date_text(),"home_body":_game.home_body(),"country":_game.country()} if _game_available() else {}

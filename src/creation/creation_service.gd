@@ -12,6 +12,8 @@ var proposals: Array = []
 var sequence := 0
 var view: Node
 var meshes: Array = []
+var programs: Node
+var ship_flight: Node
 var object_navigation: Node
 var _world_id := 0
 var _bus_registered := false
@@ -24,6 +26,10 @@ func setup(owner: Node) -> void:
 	if api != null and api.get("bus") != null and not _bus_registered:
 		api.bus.on("resource_rows",_resource_rows,70,"pax_harness"); _bus_registered=true
 func clear() -> void:
+	if is_instance_valid(programs): programs.queue_free()
+	programs=null
+	if is_instance_valid(ship_flight): ship_flight.queue_free()
+	ship_flight=null
 	if is_instance_valid(object_navigation): object_navigation.queue_free()
 	object_navigation=null
 	_clear_names()
@@ -45,6 +51,14 @@ func world_ready(current: RefCounted) -> void:
 	refresh_names()
 	for record: Dictionary in records.values():
 		if record.kind=="object": _spawn(record.definition,record.get("damage",[]),true)
+	for record: Dictionary in records.values():
+		if record.kind=="ship_flight": _flights().restore_record(record)
+	for id: String in records:
+		var record: Dictionary=records[id]
+		if record.kind=="object" and record.has("transform"):
+			var node: Node3D=game.body_node(record.definition.body).get_node_or_null("HarnessObject_"+id)
+			if node!=null: node.position=game.body_node(record.definition.body).global_basis.inverse()*Vector3(record.transform.position_km[0],record.transform.position_km[1],record.transform.position_km[2])/1000.0-node.basis*node.get_meta("harness_model_center",Vector3.ZERO)
+		if record.definition.has("program"): _programs().install(id,true)
 	if not records.is_empty() or not proposals.is_empty(): _ensure_view()
 func current() -> bool:
 	return is_instance_valid(game) and is_instance_valid(owner_mod) and owner_mod._game_available(game) and game.scene_root().get_instance_id()==_world_id
@@ -61,24 +75,41 @@ func summaries() -> Array:
 		result.append({"id":id,"kind":r.kind,"name":d.get("name",{}),"body":d.get("body",""),"behavior":d.get("behavior",""),"from_id":d.get("from_id",""),"to_id":d.get("to_id",""),"days":d.get("days"),"resource_key":r.get("resource_key",""),"surface_body":Surface.body_id(id) if r.kind=="surface" else ""})
 		if r.kind=="object":
 			result[-1].merge({"destructible":d.get("destructible",false),"voxel_grid_size":d.model.size.duplicate(),"damage_count":r.get("damage",[]).size(),"altitude_km":d.altitude_km,"size_km":d.size_km,"focus_tool":"creation.focus"})
+		if r.kind=="ship_flight": result[-1]["flight"]=r.get("flight",{}).duplicate(true)
+		if d.has("program"): result[-1]["program"]={"enabled":r.get("runtime",{}).get("enabled",false),"runs":r.get("runtime",{}).get("runs",0),"last_error":r.get("runtime",{}).get("last_error",{}),"receipts":r.get("runtime",{}).get("receipts",[]).slice(-2)}
 	return result
 func capabilities() -> Dictionary:
-	return {"voxel_models":api!=null and api.get("voxel")!=null,"terrain_component_required_for_models":false,
+	return {"programmable_entities":{"schema_tool":"creation.program_schema","validate_tool":"creation.validate_program","status_tool":"creation.program_status","language":"versioned interpreted JSON AST; variables, conditions, bounded loops, events and general world API operations"},"ship_flights":preload("res://mods/pax_harness/src/creation/ship_flight.gd").info(api),"voxel_models":api!=null and api.get("voxel")!=null,"terrain_component_required_for_models":false,
 		"destructible_objects":VoxelObject.supported(api),"destructible_component":"voxel",
 		"missing_component_message":"Ordinary models work without Voxel Tools. Destructible objects need the optional voxel component; if missing, report that destruction is unavailable and do not claim to create a destructible object.",
 		"resource_classes":Array(game.econ.classes().keys()),"kinds":Policy.KINDS,"player_review_required":true,"apply_tool_exists":false,"parallel_universes_supported":false,
 		"artificial_surfaces":Surface.available(game),"formats":{
+			"ship_flight":"{id,name:{ru,en},object_id:approved object ID (gate_id accepted as an alias; provide exactly one),waypoints_km?:2..16 [x,y,z] points in the object-oriented frame, in km relative to its centre, each coordinate -100000..100000, adjacent points at least .001km apart, total path at most 1e6km; when omitted a single-ring warp_gate gets an automatic central crossing,ship_name:string,spawn_model?:one model ID from ship_flights.models,ship_length_km:0.01..100 (must fit aperture),duration_seconds:5..120,forward_axis?:-z (default)|+z|-x|+x: actual hull nose axis after provider model transforms}. Verify nose-first travel across multiple scene frames, not one still. Read ship_flights availability/fleet first. Omit spawn_model for an idle, unladen, ungrouped player ship in the same system; include it ONLY if player explicitly authorized creating a test ship. Player Apply starts a real registered Dyson ship along the local 3D route. Any approved object, any discovered body; no specific object/body/model IDs are assumed. Use creation.inspect to read geometry first. Paths use constant speed along segments; corners change direction instantly, so add points for gentler turns. This route moves a registered actor; arbitrary gameplay mechanics must be authored separately in object.program. Collision/damage/teleportation are NOT simulated by this route alone; do not claim passage through solid geometry is physically verified. Scene seconds continue while calendar time is paused. This is local flight, NOT interstellar teleportation or paid construction. Progress and endpoint persist; a new native order releases pose control. Missing mod/unsupported ship scene reports a specific error. Replay button starts the same ship again, never duplicates it.",
 			"surface":"{id,name:{ru,en},body:discovered star or gas giant,altitude_km:100..1e8,provinces_count:integer 4..40,climate:{temperature,water,biomass,radiation,atmosphere,urban,magnetic}}. All climate scales 0..1; urban must be zero. Creates a native rock shell at the parent centre, radius parent radius+altitude, with real native provinces/map. Original body is preserved. No population, colony, resources or completed research are granted. This is explicitly approved scenario authoring, not a free normal terraforming order. Saved per campaign; stable body ID harness_surface_<id>. Requires player Apply. Call space.surface on parent to discover the shell.",
 			"common":"id: lowercase a-z0-9_ starting with a letter, up to 48; name:{ru,en}; icon:gate/station/crystal/dust/panel or {rows:[4..16 equal strings of hex palette indices, 0 transparent],palette:[#RRGGBB]}",
-			"object":"{id,name,body,icon,longitude:-180..180,latitude:-90..90,altitude_km:0..1e9,size_km:0.001..1e7,behavior:decoration|warp_gate,destructible?:boolean (requires voxel component),model:{size:[integer x,y,z up to 64],palette:[#RRGGBB],shapes:[box(from,to),sphere(center,radius),cylinder(center,radius,height),torus(center,radius,tube,axis),line(from,to,width); each has color index STARTING AT 1, 0 carves. Do NOT insert a black/transparent placeholder in palette. For space gates use a floating ring without a pedestal unless explicitly requested; altitude_km must place it above the body],voxels:[[x,y,z,color]]}}. Max 128 shapes/4096 explicit voxels. Existing discovered body only. Artwork is scenario content, not proof of researched/paid construction.",
+			"behavior":"{id,name:{ru,en},object_id:approved object,program:source per creation.program_schema,preserve_state?:true}. Installs or revises an agent-authored program after player Apply. Reusing a behavior ID updates its program; id==object_id updates that object's attached program without replacing geometry; prior state is retained unless preserve_state=false. A revision restarts a faulted/paused behavior. No arbitrary native code. Faults expose exact code/path and stop only that program.",
+			"object":"{id,name,body,icon,program?:agent-authored source from creation.program_schema,longitude:-180..180,latitude:-90..90,altitude_km:0..1e9,size_km:0.001..1e7,behavior?:arbitrary identifier tag (no automatic functionality),destructible?:boolean (requires voxel component),model:{size:[integer x,y,z up to 64],palette:[#RRGGBB],shapes:[box(from,to),sphere(center,radius),cylinder(center,radius,height),torus(center,radius,tube,axis),line(from,to,width); each has color index STARTING AT 1, 0 carves. Do NOT insert a black/transparent placeholder in palette. For space gates use a floating ring without a pedestal unless explicitly requested; altitude_km must place it above the body],voxels:[[x,y,z,color]]}}. Max 128 shapes/4096 explicit voxels. Existing discovered body only. Artwork is scenario content, not proof of researched/paid construction.",
 			"object_damage":"{object_id:approved destructible object ID,center:[x,y,z] within its voxel grid,radius:0.25..16}. Player-reviewed removal of a sphere of voxels. Damage persists with the campaign; does not advance time. No terrain changes.",
 			"resource_style":"{resource_id:approved resource ID,text_color:#RRGGBB or null to restore the native default}. Only on an explicit styling request; player Apply required. Changes text color only, never font size or layout. Ordinary resources should retain the native default.",
 			"resource":"{id,name,body,goods_class:one returned class,unit:string,price:number>=0,icon,text_color?:#RRGGBB}. Omit text_color unless the player explicitly requests an accent. Uses native economy.create_goods; initial stock/demand/production are zero. No stock grants or automatic industry.",
 			"panel":"{id,name,target_id:existing object ID,rows:[{label:{ru,en},value:string} OR {label:{ru,en},resource_id:created resource ID,body:colony}]}. Native read-only UI; no code or arbitrary actions. Separate approval required.",
-			"warp_link":"{id,name,from_id:approved warp_gate ID,to_id:another approved warp_gate ID,days:integer 1..36500}. One-way, both actual bodies must be discovered; can cross existing systems/galaxies. No creation of universes. Approval adds a route only, moves no ship.",
+			"warp_link":"Legacy native passenger-transport route {id,name,from_id,to_id,days:1..36500}; does not implement authored game-object behavior. Use object.program or a behavior project for new working mechanics, not this legacy route.",
 			"warp_transit":"{link_id,ship_id:existing in-flight native ship ID}. Separate player approval reroutes a ship originating at the source gate body, preserving passengers/cargo. Arrival is handled by the native game on a later time step (minimum 1 day); it does not advance time or instantly found a colony. A changed/missing ship is rejected."}}
 func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 	if not current(): return {"ok":false,"code":"creation.inactive_world"}
+	if name=="creation.actors":
+		var host:=preload("res://mods/pax_harness/src/creation/program_host.gd").new(); host.setup(self,{"runtime":{}},"")
+		return host.execute("actor.read" if args.has("id") else "actors.list",args)
+	if name=="creation.program_schema":
+		var schema: Dictionary=preload("res://mods/pax_harness/src/creation/program_spec.gd").schema()
+		schema["operations"]=preload("res://mods/pax_harness/src/creation/program_host.gd").schema(); schema["actor_adapter"]=preload("res://mods/pax_harness/src/creation/ship_flight.gd").info(api)
+		return {"ok":true,"result":schema}
+	if name=="creation.validate_program": return preload("res://mods/pax_harness/src/creation/program_spec.gd").validate(args.get("program"))
+	if name=="creation.program_status": return _programs().status(str(args.get("id","")))
+	if name=="creation.inspect":
+		var id: String=str(args.get("object_id",""))
+		if not records.has(id) or records[id].kind!="object": return {"ok":false,"code":"creation.object_required"}
+		return {"ok":true,"result":records[id].duplicate(true)}
 	if name=="creation.capabilities": return {"ok":true,"result":capabilities()}
 	if name=="creation.list":
 		var pending: Array=[]
@@ -90,7 +121,11 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 	if request=="": return {"ok":false,"code":"creation.direct_player_request_required"}
 	for forbidden: String in ["только чтение","ничего не создавай","ничего не добавляй","read-only","read only","do not create","don't create"]:
 		if request.to_lower().contains(forbidden): return {"ok":false,"code":"creation.player_requested_read_only"}
-	return propose(str(args.get("kind","")),args.get("definition",{}),request)
+	var result: Dictionary=propose(str(args.get("kind","")),args.get("definition",{}),request)
+	if result.ok:
+		for proposal: Dictionary in proposals:
+			if proposal.id==result.result.proposal_id: proposal["chat_id"]=str(scope.get("chat_id",""))
+	return result
 func _player_request(scope: Dictionary) -> String:
 	if owner_mod.chat_store==null: return ""
 	var chat: Dictionary=owner_mod.chat_store.find(str(scope.get("chat_id","")))
@@ -111,7 +146,8 @@ func propose(kind: String, definition: Dictionary, request: String) -> Dictionar
 		if p.fingerprint==fingerprint and p.status in ["pending","applied"]: return _proposal_receipt(p)
 	if definition.has("id"):
 		for prior: Dictionary in proposals:
-			if prior.status=="pending" and prior.kind==kind and prior.definition.get("id")==definition.id: prior.status="superseded"
+			if prior.status!="pending" or prior.kind!=kind: continue
+			if prior.definition.get("id")==definition.id or (kind=="ship_flight" and prior.definition.get("ship_name")==definition.get("ship_name")): prior.status="superseded"
 	if proposals.filter(func(p: Dictionary): return p.status=="pending").size()>=20: return {"ok":false,"code":"creation.pending_limit"}
 	sequence+=1
 	var p: Dictionary={"id":"project:"+str(sequence),"kind":kind,"definition":definition.duplicate(true),"request":request.left(4000),"status":"pending","fingerprint":fingerprint}
@@ -124,7 +160,12 @@ func propose(kind: String, definition: Dictionary, request: String) -> Dictionar
 func _proposal_receipt(p: Dictionary) -> Dictionary:
 	return {"ok":true,"result":{"proposal_id":p.id,"status":p.status,"kind":p.kind,"name":p.definition.get("name",{}),"world_changed":p.status=="applied","review_panel":"harness.creations","instruction":"Pending means NOT created. Ask the player to review and click Apply. There is no model-callable approval or apply tool."}}
 func _references(kind: String, d: Dictionary) -> Dictionary:
-	if kind not in ["warp_transit","resource_style","object_damage"] and records.has(d.id): return {"ok":false,"code":"creation.id_exists"}
+	if kind not in ["warp_transit","resource_style","object_damage","behavior"] and records.has(d.id): return {"ok":false,"code":"creation.id_exists"}
+	if kind=="behavior":
+		if not records.has(d.object_id) or records[d.object_id].kind!="object": return {"ok":false,"code":"creation.object_required"}
+		if records.has(d.id) and records[d.id].kind!="behavior" and not (records[d.id].kind=="object" and d.id==d.object_id): return {"ok":false,"code":"creation.id_exists"}
+	if definition_program_count(kind,d)>=64: return {"ok":false,"code":"program.instance_limit"}
+	if kind=="ship_flight": return _flights().validate(d)
 	if kind=="object_damage":
 		if not records.has(d.object_id) or records[d.object_id].kind!="object" or not records[d.object_id].definition.get("destructible",false): return {"ok":false,"code":"creation.object_not_destructible"}
 		for axis: int in 3:
@@ -180,6 +221,7 @@ func apply_from_player(id: String) -> Dictionary:
 		if not valid.ok: p["error"]=valid.code; changed.emit(); return valid
 		var d: Dictionary=p.definition; var result: Dictionary={"ok":true}
 		match p.kind:
+			"ship_flight": result=_flights().start(d)
 			"object_damage": result=damage_from_player(d.object_id,d.center,float(d.radius),false)
 			"surface": result=Surface.create(game,d)
 			"resource_style": records[d.resource_id].definition["text_color"]=d.text_color
@@ -203,8 +245,17 @@ func apply_from_player(id: String) -> Dictionary:
 		if not result.ok: p["error"]=result.code; changed.emit(); return result
 		if p.kind not in ["warp_transit","resource_style","object_damage"]:
 			var record: Dictionary={"kind":p.kind,"definition":d.duplicate(true)}
+			if p.kind=="behavior" and records.get(d.id,{}).get("kind")=="object":
+				record=records[d.id].duplicate(true); record.definition["program"]=d.program.duplicate(true)
+				if not d.get("preserve_state",true): record.erase("runtime")
+			if p.kind=="ship_flight": record["flight"]=result.flight
 			if p.kind=="resource": record["resource_key"]="harness_"+str(d.id)
+			if d.has("program"):
+				var previous: Dictionary=records.get(d.id,{}).get("runtime",{}).duplicate(true)
+				if d.get("preserve_state",true) and not previous.is_empty(): record["runtime"]=previous; record.runtime.enabled=true; record.runtime.last_error={}
+				record["chat_id"]=p.get("chat_id","")
 			records[d.id]=record
+			if d.has("program"): _programs().install(d.id,record.has("runtime"))
 		refresh_names()
 		if p.kind in ["resource","resource_style"] and game.scene_root().has_method("resources_panel"):
 			var panel: Variant=game.scene_root().call("resources_panel")
@@ -288,3 +339,23 @@ func refresh_names() -> void:
 		if record.kind=="resource": keys=["рес_"+str(record.resource_key),"resource_"+str(record.resource_key)]
 		for key: String in keys:
 			if not lang.dictionary.has(key): lang.dictionary[key]=_title(d); _name_keys.append(key)
+
+func _flights() -> Node:
+	if not is_instance_valid(ship_flight):
+		ship_flight=preload("res://mods/pax_harness/src/creation/ship_flight.gd").new(); game.scene_root().add_child(ship_flight); ship_flight.setup(self)
+	return ship_flight
+
+func _programs() -> Node:
+	if not is_instance_valid(programs):
+		programs=preload("res://mods/pax_harness/src/creation/program_runtime.gd").new(); game.scene_root().add_child(programs); programs.setup(self)
+	return programs
+func definition_program_count(kind: String,d: Dictionary) -> int:
+	if kind!="behavior" and not d.has("program"): return 0
+	return records.values().filter(func(r: Dictionary): return r.definition.has("program") and r.definition.id!=d.get("id")).size()
+func focus_flight(id: String) -> Dictionary:
+	if not records.has(id): return {"ok":false,"code":"creation.flight_unavailable"}
+	var r: Dictionary=records[id]; var placement: Dictionary=r.get("flight",{}).get("placement",{})
+	if not placement.is_empty():
+		if placement.get("focus_object","")!="": return focus_object(str(placement.focus_object))
+		game.focus(str(placement.body),true); return {"ok":true}
+	return focus_object(str(r.definition.get("object_id",r.definition.get("gate_id",""))))

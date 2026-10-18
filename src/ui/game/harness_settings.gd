@@ -10,8 +10,7 @@ var feedback: Label
 var _menu_ref: WeakRef
 var _elapsed := 0.0
 var _disposing := false
-var _active_style: StyleBox
-var _active_color := Color.WHITE
+var _active_appearance: Dictionary = {}
 
 func setup(owner: Node) -> void:
 	owner_mod = owner
@@ -56,31 +55,40 @@ func refresh() -> void:
 	_menu_ref = weakref(menu)
 	if not is_instance_valid(tab_button) or tab_button.is_queued_for_deletion() or tab_button.get_parent() != parts.strip:
 		if is_instance_valid(tab_button) and not tab_button.is_queued_for_deletion(): tab_button.queue_free()
-		tab_button = menu._button("Харнес")
-		tab_button.name = "HarnessSettingsTab"
-		tab_button.toggle_mode = true
+		# Duplicate a stock tab without scripts, signals or groups. Its complete theme,
+		# font, icon spacing and layout follow the current game's settings UI.
 		for child: Node in parts.strip.get_children():
-			if not child is Button or child.is_queued_for_deletion(): continue
-			tab_button.custom_minimum_size = child.custom_minimum_size
-			for state: String in ["normal","hover","pressed","focus","disabled"]: tab_button.add_theme_stylebox_override(state,child.get_theme_stylebox(state))
-			for color: String in ["font_color","font_hover_color","font_pressed_color"]: tab_button.add_theme_color_override(color,child.get_theme_color(color))
-			break
+			if child is Button and child != tab_button and not child.is_queued_for_deletion() and not _is_selected_native_tab(menu,child):
+				tab_button = child.duplicate(0) as Button
+				break
+		if tab_button == null: return
+		# Native icon/accessibility initialization belongs to this new control.
+		for key: StringName in tab_button.get_meta_list(): tab_button.remove_meta(key)
+		tab_button.name = "HarnessSettingsTab"
+		tab_button.icon = null
+		tab_button.text = "🛠  Харнес"
 		tab_button.pressed.connect(open)
+		if menu.settings_tab == TAB: _apply_active_appearance()
 		parts.strip.add_child(tab_button)
-	tab_button.set_pressed_no_signal(menu.settings_tab == TAB)
-	if menu.settings_tab == TAB and _active_style != null:
-		tab_button.add_theme_stylebox_override("normal",_active_style)
-		tab_button.add_theme_stylebox_override("pressed",_active_style)
-		tab_button.add_theme_color_override("font_color",_active_color)
-		tab_button.add_theme_color_override("font_pressed_color",_active_color)
+
+func _is_selected_native_tab(menu: Node, button: Button) -> bool:
+	var caption: String = str(menu.t_("вкл_"+str(menu.settings_tab)))
+	return button.text.strip_edges() == caption or button.text.strip_edges().ends_with("  "+caption)
+
+func _apply_active_appearance() -> void:
+	for property: String in _active_appearance:
+		tab_button.set(property,_active_appearance[property])
 
 func _remember_active_style(menu: Node, parts: Dictionary) -> void:
 	if menu.settings_tab == TAB: return
 	var caption: String = str(menu.t_("вкл_"+str(menu.settings_tab)))
 	for child: Node in parts.strip.get_children():
 		if child is Button and (child.text.strip_edges() == caption or child.text.strip_edges().ends_with("  "+caption)):
-			_active_style = child.get_theme_stylebox("normal")
-			_active_color = child.get_theme_color("font_color")
+			_active_appearance.clear()
+			for property: Dictionary in child.get_property_list():
+				var key: String = str(property.name)
+				if key.begins_with("theme_override") and child.get(key) != null:
+					_active_appearance[key] = child.get(key)
 			return
 
 func open() -> bool:
@@ -90,7 +98,7 @@ func open() -> bool:
 	if menu.has_method("to_open"): menu.to_open()
 	else: menu.visible = true
 	if menu.settings_tab == TAB and is_instance_valid(panel) and not panel.is_queued_for_deletion(): return true
-	if _active_style == null:
+	if _active_appearance.is_empty():
 		menu._settings_screen("game")
 		var native_parts: Dictionary = _parts(menu)
 		if not native_parts.is_empty(): _remember_active_style(menu,native_parts)

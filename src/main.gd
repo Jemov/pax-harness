@@ -768,6 +768,10 @@ func _tool_registry() -> RefCounted:
 func _localization_roots() -> Array:
 	var roots: Array = [chat_ui]
 	if is_instance_valid(_creations) and is_instance_valid(_creations.view): roots.append(_creations.view.window)
+	if is_instance_valid(_creations): roots.append_array(_creations._program_windows.values())
+	if is_instance_valid(_creations):
+		for window: Node in _creations._program_windows.values():
+			if is_instance_valid(window) and is_instance_valid(window.get_meta("controls_button",null)): roots.append(window.get_meta("controls_button"))
 	if is_instance_valid(_settings_ui): roots.append_array([_settings_ui.panel,_settings_ui.tab_button])
 	return roots
 

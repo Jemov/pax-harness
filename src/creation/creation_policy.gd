@@ -6,6 +6,7 @@ const SHAPES := ["box","sphere","cylinder","torus","line"]
 static func definitions() -> Array:
 	var result: Array = []
 	for item: Array in [
+		["creation.open_controls","Open the native control workspace of one approved entity, if its authored program defines ui.workspace. UI only; does not order or produce anything.",{"object_id":{"type":"string","maxLength":48}},["object_id"]],
 		["creation.actors","Observe actual native actors through enabled adapters. Current adapter: Dyson player vessels, NOT the game's scheduled passenger transports from ships.read. Supply a discovered reference body; optionally one id=dyson:<ship title>, otherwise page the list. Returns actual position_km relative to that body, body_frame, entity_id, cargo, health and star. Read before and after program operations.",{"body":{"type":"string","maxLength":160},"id":{"type":"string","maxLength":240},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":64}},["body"]],
 		["creation.program_schema","Read the entity programming language, events, expressions, statements and general world-operation schemas. No preset portal logic. Read before writing object.program or a behavior project.",{},[]],
 		["creation.validate_program","Compile-check a proposed entity program without executing it. Returns an exact source path and cause on failure.",{"program":{"type":"object"}},["program"]],

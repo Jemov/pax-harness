@@ -1,5 +1,6 @@
 extends RefCounted
 const LABELS := {"orders.failed":"Архив проваленных планов","orders.read":"Текущие приказы","orders.submit":"Передать приказ",
+	"creation.open_controls":"Открыть управление",
 	"tools.groups":"Группы инструментов","tools.load":"Загрузка группы инструментов",
 	"ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",
 	"prompts.list":"Промпты лаборатории","prompts.read":"Чтение инструкций","prompts.update":"Изменение инструкций",

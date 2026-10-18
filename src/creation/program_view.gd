@@ -17,6 +17,11 @@ func field_text(value: Variant) -> String:
 func setup(value: Node,id: String,source: Dictionary) -> void:
 	service=value; identity=id; program=source
 	name="EntityProgram_"+id
+	if program.get("ui",{}).has("workspace"):
+		add_child(label(text(program.ui.workspace.title)))
+		var open:=Button.new(); open.name="OpenControls_"+id; open.text=L.text("Открыть управление"); open.disabled=not service.records.has(id); add_child(open)
+		open.pressed.connect(func(): service.open_controls(identity))
+		return
 	add_child(label(L.text("Программа поведения")))
 	toggle=CheckButton.new(); toggle.name="ProgramEnabled_"+id; toggle.text=L.text("Выполнять программу"); add_child(toggle)
 	toggle.toggled.connect(func(enabled: bool):
@@ -41,6 +46,7 @@ func _process(delta: float) -> void:
 	if _elapsed<0.2: return
 	_elapsed=0.0; refresh()
 func refresh() -> void:
+	if not is_instance_valid(toggle): return
 	var runtime: Dictionary=service.records.get(identity,{}).get("runtime",{})
 	toggle.disabled=runtime.is_empty(); toggle.set_pressed_no_signal(bool(runtime.get("enabled",false)))
 	for action: Button in actions: action.disabled=not bool(runtime.get("enabled",false))

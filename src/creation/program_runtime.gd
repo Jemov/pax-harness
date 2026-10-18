@@ -61,11 +61,12 @@ func dispatch(id: String,event_name: String,payload: Dictionary={}) -> Dictionar
 		record.runtime.enabled=false; record.runtime.last_error=result.error
 		service.changed.emit()
 	return result
-func interact(id: String,event: String) -> Dictionary:
+func interact(id: String,event: String,input: Dictionary={}) -> Dictionary:
 	if not entries.has(id): return {"ok":false,"code":"program.not_found"}
+	if not VM.plain(input) or JSON.stringify(input).length()>8192: return {"ok":false,"code":"program.invalid_input"}
 	var program: Dictionary=entries[id].record.definition.program
 	if not program.events.any(func(e: Dictionary): return e.name==event and e.type=="interaction"): return {"ok":false,"code":"program.not_interaction"}
-	return dispatch(id,event)
+	return dispatch(id,event,{"input":input})
 func feedback(chat_id: String) -> Array:
 	var rows: Array=[]
 	for id: String in entries:

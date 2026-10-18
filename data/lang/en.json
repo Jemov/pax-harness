@@ -760,5 +760,8 @@
   "pax_harness_5b9e5e41e4a8": "Disable message queueing",
   "pax_harness_ea28cb995474": "Enable message queueing",
   "pax_harness_584b8ab78561": "Queued message",
-  "pax_harness_bb2a4af3fcbf": "Sending interrupted"
+  "pax_harness_bb2a4af3fcbf": "Sending interrupted",
+  "pax_harness_3624d07acae5": "Open controls",
+  "pax_harness_4b7ab4c3ff50": "Object controls",
+  "pax_harness_68505b6d0475": "Enabled"
 }

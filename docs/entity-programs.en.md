@@ -62,3 +62,6 @@ The card shows fields, buttons and a program enable switch. `creation.program_st
 A fault stops that program. Completed world actions are not rolled back. Fixes require another reviewed proposal; successful mutations should not be replayed to repair an error.
 
 Each program supports 8 events, 12 fields, 12 buttons, and up to 64 KiB each of source and state. A handler has a 4096-instruction budget; array loops allow 64 items. The shared event queue holds up to 256 entries and dispatches up to 16 handlers per frame. Programs cannot access files, networks or arbitrary engine methods.
+
+
+`ui.workspace` defines a native control window: one or two columns of `choices`, `fields`, `list`, `progress` and `actions` sections. See `creation.program_schema.workspace` for exact bounds and fields. A choice has localized title/description and a plain `value` payload. An action with `inputs:["design"]` invokes its approved interaction with the selected payload at `event.input.design`. Queue contents, durations, stock checks and world effects belong to the program. `creation.open_controls` opens an approved workspace without executing an action.

@@ -44,7 +44,7 @@ func catalogue(include_unavailable_vision: bool = false) -> Array:
 		row["channels"] = "*"
 		row["package_id"] = _package(row.name)
 		row["group_id"] = Groups.group_for(row.name)
-		row["read_only"] = not row.mutates_world and row.name not in ["chat.send","prompts.update","prompts.patch","plan.update","instructions.update","analysis.delegate","ui.open","images.generate","creation.propose","creation.focus"]
+		row["read_only"] = not row.mutates_world and row.name not in ["chat.send","prompts.update","prompts.patch","plan.update","instructions.update","analysis.delegate","ui.open","images.generate","creation.propose","creation.focus","creation.open_controls"]
 		row["result_schema"] = {"type":"object","description":"Actual observation or execution receipt; fields are described by after_state."}
 		result.append(row)
 	return result

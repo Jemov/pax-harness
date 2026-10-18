@@ -10,7 +10,7 @@
 - Потоковые ответы, компактная очередь сообщений, уточнения во время работы, редактирование и отмена очереди.
 - Инструкции для чата и партии, план задачи, сжатие длинной истории. Переписка и черновики сохраняются с партией.
 - Игровые инструменты для чтения состояния и выполнения доступных действий. Описания подгружаются группами по мере необходимости. В настройках можно отключать отдельные группы и функции.
-- Чтение доступных сущностей модов и управление некоторыми их функциями через наблюдаемые элементы интерфейса. После действия агент перечитывает результат; отправленный приказ или нажатие кнопки сами по себе не означают завершённую сделку.
+- Чтение доступных сущностей модов и управление некоторыми их функциями через наблюдаемые элементы интерфейса, включая меню, раскрывающиеся наведением. После действия агент перечитывает результат; отправленный приказ или нажатие кнопки сами по себе не означают завершённую сделку.
 - Обмен ресурсами со странами через штатные предложения и принятие сделок. Проверка условий, изменений запасов и договора; отдельное поручение из переписки не подменяет сделку.
 - **39 видов диаграмм**, графики функций, таблицы с поиском, сортировкой, страницами и экспортом CSV. Расчёты и иллюстративные примеры отделяются от наблюдаемых игровых данных.
 - Карты провинций, морей, озёр и побережий с изменениями текущего сценария и модов. Поиск небесных тел и звёзд, переход к реальным объектам игрового космоса.
@@ -37,7 +37,7 @@
 
 Новые сущности и программы появляются в партии после нажатия игроком **«Применить»**. Обычные воксельные модели работают без дополнительных компонентов; отдельно висящие разрушаемые объекты требуют **Voxel Tools**. Качество выполнения зависит от выбранной модели. Чтение данных и управление некоторыми функциями модов.
 
-Для Pax Universe 0.31.5.
+Для Pax Universe 0.31.5–0.31.6.
 
 ## English
 
@@ -51,7 +51,7 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 - Streaming responses, a compact message queue, corrections while working, editing and cancelling queued messages.
 - Chat and campaign instructions, task plans and history compaction. Conversations and drafts persist with the campaign.
 - Game-state readers and available game actions. Tool groups load on demand; individual groups and functions can be disabled in settings.
-- Read exposed mod entities and control some mod features through observed interface controls. The assistant reads results back after acting; a submitted order or dispatched click alone does not prove a completed transaction.
+- Read exposed mod entities and control some mod features through observed interface controls, including hover-revealed menus. The assistant reads results back after acting; a submitted order or dispatched click alone does not prove a completed transaction.
 - Exchange resources with countries through native proposals and deal acceptance. Verify terms, stock changes and treaty state; a separate task in correspondence does not substitute for a deal.
 - **39 chart types**, function plots, searchable/sortable/paged tables and CSV export. Calculations and illustrative examples are distinguished from observed game data.
 - Province, sea, lake and coastline maps include current scenario/mod changes. Search actual bodies and stars and navigate the game's space catalogue.
@@ -78,4 +78,4 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 
 New entities and programs enter the campaign after the player clicks **Apply**. Ordinary voxel models need no extra component; detached destructible volumes require **Voxel Tools**. Results depend on the selected model. Read data and control some mod features.
 
-For Pax Universe 0.31.5.
+For Pax Universe 0.31.5–0.31.6.

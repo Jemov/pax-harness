@@ -1,5 +1,5 @@
 extends RefCounted
-## Observed mod controls only. No mouse movement, input injection or model-selected method.
+## Observed mod controls only. No desktop input or model-selected method.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 var api: Node
 var game: RefCounted
@@ -11,16 +11,51 @@ func _script_mod(object: Object,id: String) -> bool:
 	if not is_instance_valid(object): return false
 	var script: Variant=object.get_script()
 	return script is Script and script.resource_path.begins_with("res://mods/"+id+"/")
-func belongs(control: Node,mod: Node,id: String) -> bool:
+func _signal_mod(control: Control,signal_name: String,id: String) -> bool:
+	for connection: Dictionary in control.get_signal_connection_list(signal_name):
+		var callback: Callable=connection.get("callable",Callable())
+		if callback.is_valid() and _script_mod(callback.get_object(),id): return true
+	return false
+func _exclusive_scope(root: Control,id: String) -> bool:
+	# A mod may build a plain overlay under the game's CanvasLayer. Read its
+	# labels/fields only when every scripted UI owner in that overlay agrees.
+	# A mixed native HUD or another mod's controls never inherit ownership.
+	var pending: Array=[root]; var owned:=false; var visited:=0
+	while not pending.is_empty() and visited<4000:
+		var node: Node=pending.pop_back(); visited+=1
+		if node is Node3D or node is SubViewport: continue
+		pending.append_array(node.get_children())
+		if not node is Control: continue
+		var script: Variant=node.get_script()
+		if script is Script:
+			if not _script_mod(node,id): return false
+			owned=true
+		for signal_name: String in ["pressed","mouse_entered","gui_input","value_changed","item_selected","text_changed"]:
+			if not node.has_signal(signal_name): continue
+			for connection: Dictionary in node.get_signal_connection_list(signal_name):
+				var callback: Callable=connection.get("callable",Callable())
+				if not callback.is_valid(): continue
+				var target: Object=callback.get_object()
+				if not is_instance_valid(target) or not target.get_script() is Script: continue
+				if not _script_mod(target,id): return false
+				owned=true
+	return owned and pending.is_empty()
+func belongs(control: Node,mod: Node,id: String,scope_cache: Dictionary) -> bool:
 	if mod.is_ancestor_of(control) or control==mod: return true
 	var cursor: Node=control
 	while cursor!=null:
 		if _script_mod(cursor,id): return true
 		cursor=cursor.get_parent()
-	if control is BaseButton:
-		for connection: Dictionary in control.get_signal_connection_list("pressed"):
-			var callback: Callable=connection.get("callable",Callable())
-			if callback.is_valid() and _script_mod(callback.get_object(),id): return true
+	if control is Control:
+		for signal_name: String in ["pressed","toggled","mouse_entered","value_changed","item_selected","text_changed","text_submitted","tab_changed","gui_input"]:
+			if control.has_signal(signal_name) and _signal_mod(control,signal_name,id): return true
+	var overlay: Node=control
+	while overlay is Control:
+		if overlay.get_parent() is CanvasLayer:
+			var key: int=overlay.get_instance_id()
+			if not scope_cache.has(key): scope_cache[key]=_exclusive_scope(overlay,id)
+			return scope_cache[key]
+		overlay=overlay.get_parent()
 	return false
 func _label(control: Control) -> String:
 	if control is LineEdit and control.secret: return "[private]"
@@ -47,7 +82,13 @@ func _context(control: Control) -> Array:
 				if labels.size()>=8: return labels
 		child=parent
 	return labels
-func _actions(control: Control) -> Array:
+func _actions(control: Control,id: String) -> Array:
+	var actions: Array=_primary_actions(control)
+	# Reveal native hover menus through their observed mod-owned signal.
+	# No arbitrary method selection or movement of the desktop pointer.
+	if not (control is BaseButton and control.disabled) and control.mouse_filter!=Control.MOUSE_FILTER_IGNORE and _signal_mod(control,"mouse_entered",id): actions.append("hover")
+	return actions
+func _primary_actions(control: Control) -> Array:
 	if control is BaseButton:
 		if control.disabled: return []
 		if control is OptionButton: return ["select"]
@@ -65,11 +106,28 @@ func _ref(control: Control,mod: Node,id: String) -> String:
 	sequence+=1
 	var key: String="mod-ui:"+str(sequence)
 	refs[key]={"node":weakref(control),"mod":weakref(mod),"id":id,"label":_label(control),"tooltip":control.tooltip_text,"context":_context(control)}
+	refs[key]["hover_bindings"]=control.get_signal_connection_list("mouse_entered")
 	return key
+func _visible_ids() -> Dictionary:
+	var root: Variant=game.call("scene_root") if game.has_method("scene_root") else null
+	var pending: Array=[root] if root is Node else []; var result: Dictionary={}; var visited:=0
+	while not pending.is_empty() and visited<20000:
+		var node: Node=pending.pop_back(); visited+=1
+		if not is_instance_valid(node) or node.is_queued_for_deletion(): continue
+		pending.append_array(node.get_children())
+		if node is Control and node.is_visible_in_tree(): result[node.get_instance_id()]=true
+	return result
+func _reveal(entry: Dictionary,mod: Node) -> void:
+	if not refs.has(entry.get("opener","")) or Time.get_ticks_msec()>int(entry.get("reveal_until",0)): return
+	var opening: Dictionary=refs[entry.opener]; var control: Variant=opening.node.get_ref()
+	if not is_instance_valid(control) or control.is_queued_for_deletion() or not control.is_visible_in_tree(): return
+	if not belongs(control,mod,entry.id,{}) or _label(control)!=opening.label or control.tooltip_text!=opening.tooltip or _context(control)!=opening.context: return
+	if "hover" not in _actions(control,entry.id) or control.get_signal_connection_list("mouse_entered")!=opening.hover_bindings: return
+	control.mouse_entered.emit()
 func inspect(id: String,mod: Node,args: Dictionary) -> Dictionary:
 	var root: Variant=game.call("scene_root") if game.has_method("scene_root") else null
 	if not root is Node: return Data.failed("mods.ui_unavailable")
-	var pending: Array=[root]; var rows: Array=[]; var visited:=0
+	var pending: Array=[root]; var rows: Array=[]; var visited:=0; var scope_cache: Dictionary={}
 	var search: String=str(args.get("search","")).to_lower()
 	# A public navigation catalogue is also used by companion UI mods. This
 	# supports lazy windows whose native navigation buttons are currently folded.
@@ -87,8 +145,8 @@ func inspect(id: String,mod: Node,args: Dictionary) -> Dictionary:
 		# Harness history/Apply buttons and API profiles are outside this interface.
 		if _script_mod(node,"pax_harness") or _script_mod(node,"ai_tuning") or _script_mod(node,"prompt_lab_local"): continue
 		pending.append_array(node.get_children())
-		if not node is Control or not node.is_visible_in_tree() or not belongs(node,mod,id): continue
-		var text: String=_label(node); var actions: Array=_actions(node)
+		if not node is Control or not node.is_visible_in_tree() or not belongs(node,mod,id,scope_cache): continue
+		var text: String=_label(node); var actions: Array=_actions(node,id)
 		if text.begins_with("@") and actions.is_empty(): continue
 		var tooltip: String=node.tooltip_text.left(500); var context: Array=_context(node)
 		if search!="" and not (text+" "+tooltip+" "+" ".join(context)).to_lower().contains(search): continue
@@ -133,9 +191,27 @@ func act(args: Dictionary) -> Dictionary:
 		return Data.failed("mods.ui_changed")
 	var control: Variant=entry.node.get_ref()
 	if not is_instance_valid(control) or not is_instance_valid(mod) or control.is_queued_for_deletion() or api.call("get_mod",entry.id)!=mod: return Data.failed("mods.ui_ref_expired")
-	if not control.is_visible_in_tree() or not belongs(control,mod,entry.id) or _label(control)!=entry.label or control.tooltip_text!=entry.tooltip or _context(control)!=entry.context: return Data.failed("mods.ui_changed")
-	if action not in _actions(control): return Data.failed("mods.ui_action_unavailable")
+	# Reactivate only the exact native hover menu that revealed this reference.
+	# It must genuinely become visible again before the normal guards/actions.
+	if not control.is_visible_in_tree(): _reveal(entry,mod)
+	if not control.is_visible_in_tree() or not belongs(control,mod,entry.id,{}) or _label(control)!=entry.label or control.tooltip_text!=entry.tooltip or _context(control)!=entry.context: return Data.failed("mods.ui_changed")
+	if action not in _actions(control,entry.id): return Data.failed("mods.ui_action_unavailable")
+	if action=="hover" and control.get_signal_connection_list("mouse_entered")!=entry.hover_bindings: return Data.failed("mods.ui_changed")
 	match action:
+		"hover":
+			var before_visible: Dictionary=_visible_ids()
+			control.mouse_entered.emit()
+			var observed: Dictionary=inspect(entry.id,mod,{"limit":100})
+			var revealed: Array=[]
+			if observed.get("ok",false):
+				for row: Dictionary in observed.result.controls:
+					var target: Dictionary=refs.get(row.ref,{})
+					if not target.has("node"): continue
+					var node: Variant=target.node.get_ref()
+					if not is_instance_valid(node) or before_visible.has(node.get_instance_id()): continue
+					target["opener"]=key; target["reveal_until"]=Time.get_ticks_msec()+120000
+					revealed.append(row)
+			return Data.success({"mod":entry.id,"action":action,"dispatched":true,"completed":false,"revealed_controls":revealed,"has_more":observed.get("result",{}).get("has_more",false),"instruction":"Use these observed refs to navigate the revealed menu. If it auto-closes, its original hover trigger is reactivated before the action; hidden controls are never invoked without reopening. Refs expire after two minutes or UI changes. Read back the outcome."})
 		"press":
 			if control.toggle_mode: control.button_pressed=not control.button_pressed
 			control.pressed.emit()

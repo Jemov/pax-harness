@@ -64,4 +64,11 @@ A fault stops that program. Completed world actions are not rolled back. Fixes r
 Each program supports 8 events, 12 fields, 12 buttons, and up to 64 KiB each of source and state. A handler has a 4096-instruction budget; array loops allow 64 items. The shared event queue holds up to 256 entries and dispatches up to 16 handlers per frame. Programs cannot access files, networks or arbitrary engine methods.
 
 
-`ui.workspace` defines a native control window: one or two columns of `choices`, `fields`, `list`, `progress` and `actions` sections. See `creation.program_schema.workspace` for exact bounds and fields. A choice has localized title/description and a plain `value` payload. An action with `inputs:["design"]` invokes its approved interaction with the selected payload at `event.input.design`. Queue contents, durations, stock checks and world effects belong to the program. `creation.open_controls` opens an approved workspace without executing an action.
+Legacy `ui.workspace.columns` defines one or two columns of `choices`, `fields`, `list`, `progress` and `actions` sections. See `creation.program_schema.workspace` for exact bounds and fields. A choice has localized title/description and a plain `value` payload. An action with `inputs:["design"]` invokes its approved interaction with the selected payload at `event.input.design`. Queue contents, durations, stock checks and world effects belong to the program. `creation.open_controls` opens an approved workspace without executing an action.
+
+
+## Composable UI
+
+Use `ui.workspace.layout` for a nested widget tree described in `creation.program_schema.workspace.tree`. Legacy `columns` remain supported; choose one representation. Containers and inputs compose freely. Buttons send typed drafts to their program interaction under `event.input`; handlers implement the actual effects and validation. Live tables read arrays of maps from state. Visibility and enabled bindings read state only. Text is localized `{ru,en}` and widgets inherit the native theme. Bounds: 128 nodes, nesting depth 8, 24 children per container, 64 visible table rows. These are supported widgets, not unrestricted native-code execution.
+
+Inputs support text, textarea, number, slider, toggle and select. Buttons may add a static `payload` for a shared handler; current draft inputs take precedence. All labels follow the game language, falling back to English, and a language change preserves drafts.

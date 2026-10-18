@@ -1,6 +1,9 @@
 extends VBoxContainer
 ## Generic native controls for an approved authored program, without presets.
 const L=preload("res://mods/pax_harness/src/localization/localization.gd")
+const TreeView=preload("res://mods/pax_harness/src/creation/workspace_tree.gd")
+var tree_view: RefCounted
+var drafts: Dictionary={}
 var service: Node
 var identity: String
 var selections: Dictionary={}
@@ -16,10 +19,11 @@ func text(value: Dictionary) -> String: return str(value.get(L.language(),value.
 func label(value: String) -> Label:
 	var node:=Label.new(); node.text=value; node.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; node.size_flags_horizontal=Control.SIZE_EXPAND_FILL; return node
 func setup(owner: Node,id: String) -> void:
+	if identity!=id: selections.clear()
 	service=owner; identity=id; name="ObjectControls_"+id; add_theme_constant_override("separation",12); rebuild()
 func rebuild() -> void:
 	for node: Node in get_children(): remove_child(node); node.queue_free()
-	bindings.clear(); actions.clear(); selections.clear()
+	bindings.clear(); actions.clear(); drafts=selections.duplicate(true); selections.clear()
 	_source=service.records.get(identity,{}).get("definition",{}).get("program",{}).get("ui",{}).get("workspace",{}).duplicate(true); _language=L.language()
 	if _source.is_empty(): return
 	var header:=HBoxContainer.new(); add_child(header)
@@ -28,6 +32,10 @@ func rebuild() -> void:
 	if _source.has("subtitle"): add_child(label(text(_source.subtitle)))
 	toggle=CheckButton.new(); toggle.text=L.text("Активно"); toggle.name="WorkspaceEnabled"; add_child(toggle)
 	toggle.toggled.connect(func(on: bool): service.programs.set_enabled(identity,on))
+	if _source.has("layout"):
+		var scroll:=ScrollContainer.new(); scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL; scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL; add_child(scroll)
+		tree_view=TreeView.new(); tree_view.setup(self); tree_view.build(scroll,_source.layout)
+		feedback=label(""); add_child(feedback); refresh(); return
 	var columns:=HBoxContainer.new(); columns.add_theme_constant_override("separation",16); columns.size_flags_vertical=Control.SIZE_EXPAND_FILL; add_child(columns)
 	for column: Array in _source.columns:
 		var scroll:=ScrollContainer.new(); scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED; scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL; scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL; scroll.custom_minimum_size=Vector2(300,420); columns.add_child(scroll)
@@ -64,14 +72,20 @@ func build_section(parent: Node,s: Dictionary) -> void:
 		"actions":
 			for row: Dictionary in s.buttons:
 				var button:=Button.new(); button.name="WorkspaceAction_"+identity+"_"+row.event; button.text=text(row.label); button.custom_minimum_size.y=36; box.add_child(button); actions.append({"node":button,"inputs":row.get("inputs",[])})
-				button.pressed.connect(func():
-					var input: Dictionary={}
-					for key: String in row.get("inputs",[]): input[key]=selections[key].duplicate(true)
-					var result: Dictionary=service.programs.interact(identity,row.event,input)
-					feedback.text="" if result.ok else str(result.get("error",result.get("code",""))); refresh())
+				button.pressed.connect(func(): send(row.event,row.get("inputs",[])))
+func send(event: String,input_ids: Array,payload: Dictionary={}) -> void:
+	var input: Dictionary=payload.duplicate(true)
+	for key: String in input_ids:
+		if not selections.has(key): return
+		var value: Variant=selections[key]; input[key]=value.duplicate(true) if value is Dictionary or value is Array else value
+	var result: Dictionary=service.programs.interact(identity,event,input)
+	feedback.text="" if result.ok else str(result.get("error",result.get("code",""))); refresh()
 func state_value(path: String) -> Variant:
 	var value: Variant={"state":service.records.get(identity,{}).get("runtime",{}).get("state",{})}
-	for key: String in path.split("."): value=value.get(key) if value is Dictionary else null
+	for key: String in path.split("."):
+		if value is Dictionary: value=value.get(key)
+		elif value is Array and key.is_valid_int() and int(key)>=0 and int(key)<value.size(): value=value[int(key)]
+		else: value=null
 	return value
 func display(value: Variant) -> String:
 	if value is Dictionary and value.has_all(["ru","en"]): return text(value)
@@ -82,7 +96,7 @@ func refresh() -> void:
 	if not is_instance_valid(toggle): return
 	var runtime: Dictionary=service.records.get(identity,{}).get("runtime",{})
 	var enabled: bool=runtime.get("enabled",false); toggle.set_pressed_no_signal(enabled)
-	for action: Dictionary in actions: action.node.disabled=not enabled or action.inputs.any(func(key: String): return not selections.has(key))
+	for action: Dictionary in actions: action.node.disabled=not enabled or action.inputs.any(func(key: String): return not selections.has(key)) or action.get("enabled_paths",[]).any(func(p: String): return not bool(state_value(p)))
 	for binding: Dictionary in bindings:
 		match binding.type:
 			"field": binding.node.text=display(state_value(binding.path))
@@ -96,6 +110,7 @@ func refresh() -> void:
 					var value: Variant=state_value(row.path); row.node.visible=value!=null and (not value is String or not value.is_empty())
 					if row.node.visible: count+=1; row.node.text=str(count)+". "+display(value)
 				binding.empty.visible=count==0
+			_: if tree_view!=null: tree_view.refresh(binding,enabled)
 	if not runtime.get("last_error",{}).is_empty(): feedback.text=L.text("Ошибка программы: ")+str(runtime.last_error)
 func _process(delta: float) -> void:
 	_elapsed+=delta

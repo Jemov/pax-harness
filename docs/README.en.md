@@ -26,7 +26,7 @@ Warp routes join two approved objects in actual existing systems. Rerouting an e
 
 Find the collapsible tool catalogue with short descriptions under **Settings → Harness → Agent tools**. Each group and function has a checkbox; a square marks a partially enabled group. Disabled functions are omitted from model schemas and cannot execute, even during an ongoing reply. Preferences persist across campaigns. Resource rows match the native game; a text-color accent requires an explicit request and a separately approved project.
 
-**Object controls:** the assistant can author a separate native window with a catalogue, selection, live fields, queue, progress and actions. Click **Open controls** in the object card. A shipyard can expose hull choices, cost and duration, ordering, pause and cancellation of unpaid jobs. The object program implements the effects; UI widgets never grant ships or resources themselves.
+**Object controls:** the assistant authors both layout and handlers from a general native widget set: nested rows, columns, grids, tabs, scrolling, text, live values, tables, progress, text/numeric inputs, sliders, toggles, choices and buttons. Click **Open controls** in the object card. Arbitrary UI code is not executed. The entity program defines actions and validation. Draft inputs survive language changes; committed state persists with the campaign.
 
 ## Geography and space
 
@@ -46,7 +46,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.18.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.19.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 

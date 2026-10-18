@@ -1,7 +1,10 @@
 extends RefCounted
 ## Bounded data widgets; the approved program supplies all object-specific rules.
 static func validate(w: Variant,interactions: Array,spec: RefCounted) -> bool:
-	if not w is Dictionary or not spec.keys(w,["title","subtitle","columns"],["title","columns"]) or not spec.label(w.title) or (w.has("subtitle") and not spec.label(w.subtitle)): return false
+	if not w is Dictionary or not spec.keys(w,["title","subtitle","columns","layout"],["title"]) or not spec.label(w.title) or (w.has("subtitle") and not spec.label(w.subtitle)): return false
+	if w.has("layout"):
+		return not w.has("columns") and preload("res://mods/pax_harness/src/creation/workspace_tree_spec.gd").validate(w.layout,interactions,spec)
+	if not w.has("columns"): return false
 	if not w.columns is Array or w.columns.size()<1 or w.columns.size()>2: return false
 	var inputs: Array=[]; var actions: Array=[]; var total:=0
 	for column: Variant in w.columns:
@@ -38,4 +41,8 @@ static func validate(w: Variant,interactions: Array,spec: RefCounted) -> bool:
 static func state_path(value: Variant,spec: RefCounted) -> bool:
 	return spec.path(value) and str(value).begins_with("state.")
 static func schema() -> Dictionary:
+	var legacy: Dictionary=legacy_schema()
+	legacy["tree"]=preload("res://mods/pax_harness/src/creation/workspace_tree_spec.gd").schema()
+	return legacy
+static func legacy_schema() -> Dictionary:
 	return {"title":"{ru,en}","subtitle":"optional {ru,en}","columns":"1..2 arrays of sections, at most12 total; native themed window, no CSS/code/paths", "sections":{"fields":"{type:fields,title:{ru,en},rows:[{label:{ru,en},path:state.x}]} (max12)","choices":"{type:choices,title:{ru,en},id:input_name,options:[{id:option_id,title:{ru,en},description?:{ru,en},value:{plain payload}}]} (1..12). First selected by default; selection stays UI-local.","list":"{type:list,title:{ru,en},paths:[state.q1,state.q2,...],empty:{ru,en}}. Live nonempty strings/localized values, max12.","progress":"{type:progress,title:{ru,en},path:state.progress,max_path:state.duration}. Native progress bar, clamped display only.","actions":"{type:actions,title:{ru,en},buttons:[{label:{ru,en},event:interaction_name,inputs?:[input_name]}]}. Click sends selected option.value under event.input.<input_name>. Program must implement actual effects, queueing and resource validation; widgets never produce anything themselves."}}

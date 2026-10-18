@@ -236,6 +236,9 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 	if not checked.ok:
 		_format_error(token,str(checked.error),checked.get("errors",["Return exactly {\"message\":\"text\",\"tool_calls\":[],\"result\":null}. Each call needs id, name and arguments."]))
 		return
+	# result is optional display metadata. Omitting null adds no executable action.
+	if not response.has("result"):
+		response=response.duplicate(true); response["result"]=null
 	var calls: Array = response.tool_calls
 	if s.count + calls.size() > int(s.scope.get("max_calls",MAX_CALLS)):
 		_end(token,false,"agent_call_limit")
@@ -596,7 +599,6 @@ static func envelope(value: Variant, output_budget: int = 0) -> Dictionary:
 	if not value.get("message") is String: errors.append("response.message is required and must be a string")
 	if not value.get("tool_calls") is Array: errors.append("response.tool_calls is required and must be an array; use [] to finish")
 	elif value.tool_calls.size() > MAX_BATCH: errors.append("response.tool_calls exceeds 8 calls; use a smaller batch")
-	if not value.has("result"): errors.append("response.result is required; use null")
 	if not errors.is_empty(): return {"ok":false,"error":"agent_invalid_envelope","errors":errors}
 	var ids: Dictionary = {}
 	for call: Variant in value.tool_calls:

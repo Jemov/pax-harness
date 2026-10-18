@@ -2,7 +2,7 @@ extends RefCounted
 ## Small interpreted language: programs are authored by the agent, native methods
 ## are supplied by the host. No dynamic GDScript, reflection or external process.
 const Data=preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
-const OPS=["+","-","*","/","%","==","!=",">",">=","<","<=","and","or","not","min","max","clamp","len","concat","vadd","vscale","dot","distance","at"]
+const OPS=["+","-","*","/","%","==","!=",">",">=","<","<=","and","or","not","min","max","clamp","len","concat","vadd","vscale","dot","distance","at","append","slice","keys","values"]
 const CALLS=["body.read","body.set","actor.read","actors.list","actor.spawn","actor.move","actor.set","object.read","object.move","object.damage","resource.read","resource.add","ui.message"]
 const QUERIES=["body.read","actor.read","actors.list","object.read","resource.read"]
 var host: Callable
@@ -75,6 +75,18 @@ func expr(value: Variant,path: String) -> Variant:
 	if not error.is_empty(): return null
 	var args: Array=evaluated
 	if op=="not": return not bool(args[0])
+	if op in ["keys","values"]:
+		if not args[0] is Dictionary: return fail("program.type_error",path,"keys/values needs a dictionary")
+		if args[0].size()>64: return fail("program.collection_limit",path,"At most64 collection entries")
+		return args[0].keys() if op=="keys" else args[0].values()
+	if op=="append":
+		if not args[0] is Array: return fail("program.type_error",path,"append needs array and item")
+		if args[0].size()>=64: return fail("program.collection_limit",path,"At most64 collection entries")
+		var result: Array=args[0].duplicate(true); result.append(args[1]); return result
+	if op=="slice":
+		if not args[0] is Array or not numeric(args[1]) or not numeric(args[2]): return fail("program.type_error",path,"slice needs array,start,end")
+		if args[1]!=floorf(args[1]) or args[2]!=floorf(args[2]) or args[1]<0 or args[2]<args[1] or args[2]>args[0].size(): return fail("program.collection_range",path,"slice requires 0<=start<=end<=length")
+		return args[0].slice(int(args[1]),int(args[2]),1,true)
 	if op=="==": return args[0]==args[1]
 	if op=="!=": return args[0]!=args[1]
 	if op=="at":

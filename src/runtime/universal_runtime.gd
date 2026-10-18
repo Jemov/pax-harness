@@ -319,7 +319,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 		operation.repeats += 1
 		s.operations[fingerprint] = operation
 		if (operation.write or s.ledger.has(call.id)) and _loop(token,s,operation,str(call.name)): return
-		if operation.write and not operation.receipt.is_empty():
+		if operation.write and operation.get("deduplicate_arguments",true) and not operation.receipt.is_empty():
 			var cached: Dictionary = operation.receipt.duplicate(true)
 			cached["original_call_id"] = str(operation.receipt.get("call_id",""))
 			cached["call_id"] = call.id
@@ -362,6 +362,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 		operation.last = signature
 		var metadata: Array = s.registry.catalogue().filter(func(row: Dictionary): return row.name == call.name)
 		operation.write = call.name != "analysis.delegate" and not metadata.is_empty() and not metadata[0].get("read_only",not metadata[0].get("mutates_world",false))
+		operation["deduplicate_arguments"]=metadata[0].get("deduplicate_arguments",true) if not metadata.is_empty() else true
 		if operation.write and (receipt.get("execution_attempted",false) or receipt.get("status","") in ["complete","submitted"]): operation.receipt = receipt.duplicate(true)
 		s.ledger[call.id].receipt = receipt.duplicate(true)
 		s.receipts.append(receipt.duplicate(true))

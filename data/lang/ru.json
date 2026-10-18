@@ -773,5 +773,7 @@
   "pax_harness_action_dispatched": "Действие отправлено; результат не проверен",
   "pax_harness_diplomacy_offers": "Предложения и переписка страны",
   "pax_harness_diplomacy_exchange": "Предложить обмен ресурсами",
-  "pax_harness_diplomacy_accept_offer": "Заключить предложенную сделку"
+  "pax_harness_diplomacy_accept_offer": "Заключить предложенную сделку",
+  "pax_harness_mod_api": "Публичные функции мода",
+  "pax_harness_mod_invoke": "Вызвать публичную функцию мода"
 }

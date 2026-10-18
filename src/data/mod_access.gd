@@ -1,20 +1,24 @@
 extends RefCounted
-## Bounded navigation of a mod's documented campaign-save data, never arbitrary methods.
+## Bounded mod data/UI navigation and opt-in exported public contracts.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const Interface = preload("res://mods/pax_harness/src/ui/game/mod_interface.gd")
+const PublicAPI = preload("res://mods/pax_harness/src/data/mod_api.gd")
 const PRIVATE := ["api_key","apikey","access_token","refresh_token","password","authorization","secret"]
 const EXCLUDED := ["pax_harness","ai_tuning","prompt_lab_local"]
 var api: Node
 var game: RefCounted
 var interface: RefCounted = Interface.new()
 var documents: Dictionary={}
+var public_api: RefCounted=PublicAPI.new()
 func setup(p_api: Node,p_game: RefCounted) -> void:
-	api=p_api; game=p_game; documents.clear(); interface.setup(api,game)
+	api=p_api; game=p_game; documents.clear(); public_api.reset(); interface.setup(api,game)
 static func definitions() -> Array:
 	var text := {"type":"string","minLength":1,"maxLength":160}
 	var page := {"type":"integer","minimum":1,"maximum":100}
 	var offset := {"type":"integer","minimum":0}
 	var rows: Array = [
+		["mods.api","Discover ONE enabled mod's explicitly exported public API (api_info/api_has). Search/page actual method names, ordered JSON parameter signatures and opaque refs. This includes public functions without UI controls. No arbitrary engine/private methods. Configuration APIs change mod configuration, not an individual object's operation.",{"mod":text,"offset":offset,"limit":page,"search":{"type":"string","maxLength":160}},["mod"],false],
+		["mods.invoke","Invoke ONE player-requested public function using a ref observed through mods.api and ordered JSON arguments matching its signature. Ref expires after 10 minutes or a changed contract/world. May change gameplay/configuration. Never claim completion from a dispatch or boolean alone: read back the actual entity/economy/configuration. Use only your own owner ID for extension patches and never remove another mod's patches.",{"ref":text,"arguments":{"type":"array","maxItems":16,"items":{}}},["ref"],true],
 		["mods.list","Discover enabled gameplay/interface mods. Read mod IDs, versions and whether campaign state is readable. No settings, files or arbitrary code.",{},[],false],
 		["mods.catalogue","List ONE enabled mod's own JSON content documents: entity definitions, resource/research configurations and other static content. Paginate/search metadata; inspect an actual returned document ref with mods.inspect. No game files or arbitrary paths.",{"mod":text,"offset":offset,"limit":page,"search":{"type":"string","maxLength":160}},["mod"],false],
 		["mods.inspect","Browse ONE mod's live campaign-save state by a discovered JSON path, or a document ref from mods.catalogue. Start with path=[]; follow returned child paths to entities. Array indices may be integer numbers or canonical decimal strings. Paginate arrays/dictionaries; search filters immediate children and their bounded metadata. Embedded JSON databases are expanded by default; decode_json=false reads raw strings. Units and meanings belong to that mod; do not infer absent facts. Read-only, never arbitrary methods.",{"mod":text,"document":text,"decode_json":{"type":"boolean"},"path":{"type":"array","maxItems":16,"items":{"anyOf":[{"type":"string"},{"type":"integer","minimum":0}]}},"offset":offset,"limit":page,"search":{"type":"string","maxLength":160}},["mod"],false],
@@ -24,6 +28,9 @@ static func definitions() -> Array:
 	var result: Array=[]
 	for row: Array in rows:
 		result.append({"name":row[0],"id":row[0],"description":row[1],"arguments_schema":{"type":"object","properties":row[2],"required":row[3],"additionalProperties":false},"mutates_world":row[4],"handler_kind":"mod_access","capability":"installed_mod_campaign","after_state":"Actual bounded mod data or an interface dispatch receipt; no inferred completion."})
+		# A public procedural API mixes queries and repeatable commands. Preserve
+		# same-ID idempotency, but new IDs must observe/execute the function anew.
+		if row[0]=="mods.invoke": result[-1]["deduplicate_arguments"]=false
 	return result
 func enabled(id: String) -> Node:
 	if id in EXCLUDED or not is_instance_valid(api) or not api.has_method("get_mod"): return null
@@ -33,6 +40,7 @@ func execute(name: String,args: Dictionary) -> Dictionary:
 	if not is_instance_valid(game): return Data.failed("mods.inactive_world")
 	if api.has_method("world_busy") and api.call("world_busy"): return Data.failed("mods.world_busy")
 	if name=="mods.act": return interface.act(args)
+	if name=="mods.invoke": return public_api.invoke(api,args)
 	if name=="mods.list":
 		var rows: Array=[]
 		for manifest: Dictionary in api.call("mods"):
@@ -41,6 +49,7 @@ func execute(name: String,args: Dictionary) -> Dictionary:
 		return Data.success({"mods":rows,"scope":"Enabled mod campaign data and mod-owned visible controls. No model/API profiles or chat history."})
 	var id: String=str(args.get("mod","")); var mod: Node=enabled(id)
 	if mod==null: return Data.failed("mods.unavailable")
+	if name=="mods.api": return public_api.discover(id,mod,args)
 	if name=="mods.catalogue": return catalogue(id,mod,args)
 	if name=="mods.ui": return interface.inspect(id,mod,args)
 	if name!="mods.inspect": return Data.failed("mods.unknown_tool")

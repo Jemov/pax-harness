@@ -773,5 +773,7 @@
   "pax_harness_action_dispatched": "Action dispatched; outcome unverified",
   "pax_harness_diplomacy_offers": "Country offers and correspondence",
   "pax_harness_diplomacy_exchange": "Propose a resource exchange",
-  "pax_harness_diplomacy_accept_offer": "Accept the offered deal"
+  "pax_harness_diplomacy_accept_offer": "Accept the offered deal",
+  "pax_harness_mod_api": "Mod public functions",
+  "pax_harness_mod_invoke": "Invoke a mod public function"
 }

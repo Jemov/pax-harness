@@ -2,7 +2,7 @@ extends RefCounted
 ## Discovery changes schema exposure only; the original grants remain authoritative.
 const CORE := ["tools.groups", "tools.load"]
 const INFO := {
-	"mods":["Mod entities and controls","Discover enabled mods, browse their campaign entities on demand and inspect/operate their actual visible controls. Read state/UI after actions; no arbitrary code or methods."],
+	"mods":["Mod entities and controls","Discover enabled mods, campaign entities, visible controls and explicitly exported public API functions. Invoke only observed refs; read state/UI/API after actions. No arbitrary code or private/engine methods."],
 	"creation":["Player-reviewed content","Voxel objects, icons, resources, panels, warp routes and artificial surfaces with native territories require player Apply; no apply tool. creation.focus moves only the space camera to an approved object. creation.inspect reads its geometry. creation.actors observes actual native Dyson ships, their location, cargo and health; ships.read is scheduled passenger transport only. creation.program_schema exposes a general entity language: state, events, conditions, loops and world primitives. The agent writes new behavior in object.program or a behavior project, validates source with creation.validate_program and reads actual results/errors with creation.program_status. Optional Dyson ship flights follow object-relative 3D routes after player review."],
 	"charts":["Charts and tables","Visualization schemas, datasets, transformations and statistics."],
 	"maps":["Maps and provinces","Land, water and mod map layers; province observations."],

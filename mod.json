@@ -5,10 +5,10 @@
     "en": "Pax Harness · chats and tools"
   },
   "description": {
-    "ru": "Чаты ВИ, игровые инструменты, 39 видов диаграмм, таблицы, снимки игрового окна и иллюстрации через настроенный генератор игры.",
-    "en": "Assistant chats, game tools, 39 chart types, tables, game screenshots and illustrations through the configured game image service."
+    "ru": "Как открыть чат: включите мод, загрузите или начните партию и нажмите игровую кнопку «ВИ» (помощник) — откроется чат Harness. Настройки мода: меню игры → Настройки → Харнес. Модель и API выбираются в настройках нейросети игры. Чаты, игровые инструменты, 39 видов диаграмм, таблицы, снимки экрана и генерация иллюстраций.",
+    "en": "Open the chat: enable the mod, load or start a campaign, then click the normal in-game assistant (VI) button to open Harness. Mod settings: Game menu → Settings → Harness. Choose the model and API in the game AI settings. Includes chats, game tools, 39 chart types, tables, screenshots and image generation."
   },
-  "version": "1.12.1",
+  "version": "1.12.2",
   "api": 1,
   "game_version": ">=0.31.0",
   "authors": [

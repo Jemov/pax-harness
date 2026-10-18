@@ -46,7 +46,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.19.1.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.20.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 
@@ -58,9 +58,14 @@ Keep only one installed copy. Close the game before manually replacing an older 
 - Set persistent instructions for one chat or the campaign and keep a task plan with progress markers.
 - Drafts, chat history, plans and instructions are saved with the campaign. `/compact` summarizes older history when needed; missing current observations are never treated as facts merely because they appear in a summary.
 - Ask the assistant to open registered game panels, including resources, production, research and settings. Panel navigation does not itself approve actions.
-- Available data depends on installed and enabled mods. Adapters support sources such as Pax Corporations, economic mods and the Dyson Sphere. Extra source descriptions are requested as tools when needed.
+- Read data and control some features of installed and enabled mods. Source descriptions load on demand.
 
 Try: “Compare food production and consumption and explain the deficit”, “Group the last ten failed plans by cause”, “Compare company revenue and profit in a table”, or “Map provinces with the most enterprises”. State explicitly when you want analysis without changes to the world.
+
+> Create a custom voxel object in space above Mars: floating circular gates without a pedestal, with an icon. Prepare a preview and a project for my approval.
+
+You can also request working behavior and controls, such as charge, a crossing counter and buttons. Transferring a real ship uses the installed Dyson Sphere Program. The model and program enter the campaign after you click **Apply**.
+
 
 ## Settings
 

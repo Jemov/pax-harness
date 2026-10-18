@@ -4,7 +4,7 @@ const Labels = preload("res://mods/pax_harness/src/runtime/tools/tool_labels.gd"
 const Permissions = preload("res://mods/pax_harness/src/runtime/tools/tool_permissions.gd")
 const Partial = preload("res://mods/pax_harness/src/ui/components/partial_checkbox.gd")
 const Groups = preload("res://mods/pax_harness/src/runtime/tools/tool_groups.gd")
-const TITLES := {"tools":"Выбор инструментов","charts":"Графики и таблицы","maps":"Карты и провинции","analytics":"Аналитика и данные модов","ui":"Интерфейс игры","images":"Генерация изображений","space":"Космос и навигация","economy":"Экономика","world":"Мир и история","chat":"Сохранённые чаты","workspace":"Планы и инструкции","prompts":"Промпты лаборатории","people":"Персонажи","orders":"Приказы","research":"Исследования","diplomacy":"Дипломатия и законы","military":"Армия","time":"Время","creation":"Создание сущностей"}
+const TITLES := {"mods":"Сущности и интерфейсы модов","tools":"Выбор инструментов","charts":"Графики и таблицы","maps":"Карты и провинции","analytics":"Аналитика и данные модов","ui":"Интерфейс игры","images":"Генерация изображений","space":"Космос и навигация","economy":"Экономика","world":"Мир и история","chat":"Сохранённые чаты","workspace":"Планы и инструкции","prompts":"Промпты лаборатории","people":"Персонажи","orders":"Приказы","research":"Исследования","diplomacy":"Дипломатия и законы","military":"Армия","time":"Время","creation":"Создание сущностей"}
 static func build(owner: Node) -> Control:
 	var root:=VBoxContainer.new(); root.name="HarnessToolCatalogue"
 	var toggle:=Button.new(); toggle.name="ToolCatalogueToggle"; toggle.text=L.text("Инструменты агента")+" ▸"; toggle.alignment=HORIZONTAL_ALIGNMENT_LEFT; root.add_child(toggle)

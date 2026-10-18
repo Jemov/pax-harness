@@ -43,6 +43,7 @@ func analytics_tool(name: String, args: Dictionary) -> Dictionary:
 
 var resource_history: RefCounted
 var _game: RefCounted
+var _mod_access: RefCounted
 var _source_generation: int = 0
 var _ui_generation: int = 0
 var _runtime: RefCounted
@@ -143,6 +144,7 @@ func _save_state(_facade: PaxGame) -> Dictionary:
 func _world_ready(game: PaxGame) -> void:
 	if not _game_available(game): return
 	_game = game
+	_mod_access = preload("res://mods/pax_harness/src/data/mod_access.gd").new(); _mod_access.setup(Pax,game)
 	if chat_store == null: _restore_state({})
 	if is_instance_valid(_creations): _creations.world_ready(game)
 	order_archive.setup(game)

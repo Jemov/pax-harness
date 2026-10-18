@@ -763,5 +763,15 @@
   "pax_harness_bb2a4af3fcbf": "Отправка прервана",
   "pax_harness_3624d07acae5": "Открыть управление",
   "pax_harness_4b7ab4c3ff50": "Управление объектом",
-  "pax_harness_68505b6d0475": "Активно"
+  "pax_harness_68505b6d0475": "Активно",
+  "pax_harness_mod_group": "Сущности и интерфейсы модов",
+  "pax_harness_mod_list": "Включённые моды",
+  "pax_harness_mod_catalogue": "Каталог сущностей модов",
+  "pax_harness_mod_inspect": "Состояние сущности мода",
+  "pax_harness_mod_ui": "Интерфейс мода",
+  "pax_harness_mod_act": "Действие в интерфейсе мода",
+  "pax_harness_action_dispatched": "Действие отправлено; результат не проверен",
+  "pax_harness_diplomacy_offers": "Предложения и переписка страны",
+  "pax_harness_diplomacy_exchange": "Предложить обмен ресурсами",
+  "pax_harness_diplomacy_accept_offer": "Заключить предложенную сделку"
 }

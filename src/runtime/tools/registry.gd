@@ -14,6 +14,7 @@ const ChartMap = preload("res://mods/pax_harness/src/visualization/maps/chart_ma
 const ChartData = preload("res://mods/pax_harness/src/visualization/data/chart_game_data.gd")
 const Datasets = preload("res://mods/pax_harness/src/data/dataset_tools.gd")
 const UiPanels = preload("res://mods/pax_harness/src/ui/game/ui_panels.gd")
+const ModAccess = preload("res://mods/pax_harness/src/data/mod_access.gd")
 const ChartCatalogue = preload("res://mods/pax_harness/src/visualization/chart_catalogue.gd")
 const Space = preload("res://mods/pax_harness/src/runtime/tools/space_tools.gd")
 const Groups = preload("res://mods/pax_harness/src/runtime/tools/tool_groups.gd")
@@ -91,6 +92,7 @@ func dispatch(call: Dictionary, scope: Dictionary) -> Dictionary:
 	var executed: Dictionary
 	if name in Groups.CORE: executed = Groups.execute(catalogue(),scope,name,checked.arguments)
 	elif name.begins_with("creation."): executed = _owner._creations.execute(name,checked.arguments,scope)
+	elif name.begins_with("mods."): executed = _owner._mod_access.execute(name,checked.arguments)
 	elif name.begins_with("images."):
 		var image_result: Dictionary = _owner.image_tool(name,checked.arguments,scope)
 		if image_result.has("pending"): return image_result
@@ -127,7 +129,10 @@ func complete(call: Dictionary, executed: Dictionary) -> Dictionary:
 	var definition: Dictionary = _find(name)
 	var ok: bool = bool(executed.get("ok",false))
 	var errors: PackedStringArray = PackedStringArray() if ok else PackedStringArray([str(executed.get("code","tools.native_refused"))])
-	var receipt: Dictionary = {"call_id":call_id,"name":name,"status":"submitted" if ok and executed.get("submitted",false) else ("complete" if ok else "failed"),
+	var result: Variant=executed.get("result",{})
+	var dispatched: bool=ok and result is Dictionary and result.get("dispatched",false) and result.get("completed")==false
+	var status: String="failed" if not ok else "submitted" if executed.get("submitted",false) else "dispatched" if dispatched else "complete"
+	var receipt: Dictionary = {"call_id":call_id,"name":name,"status":status,
 		"submitted":bool(executed.get("submitted",false)),"mutates_world":bool(definition.get("mutates_world",false)),
 		"execution_attempted":bool(executed.get("_handler_invoked",false)),
 		"before":Data.clean(executed.get("before",{})),"after":Data.clean(executed.get("after",{})),
@@ -144,6 +149,7 @@ func _vision_enabled() -> bool:
 func _available(row: Dictionary) -> bool:
 	var name: String = str(row.name)
 	if name in Groups.CORE: return true
+	if name.begins_with("mods."): return is_instance_valid(_owner) and is_instance_valid(Data.property(_owner,"_mod_access"))
 	if name.begins_with("creation."): return is_instance_valid(_owner) and is_instance_valid(Data.property(_owner,"_creations"))
 	if name.begins_with("space.") or name in ["navigation.enter_system","navigation.open_surface"]: return Space.available(_game,name)
 	if name.begins_with("images."): return is_instance_valid(_owner) and _owner.has_method("image_tool")
@@ -216,7 +222,7 @@ static func _definitions() -> Array:
 	var chart_parameters: Dictionary = {"coefficients":{"type":"array","minItems":1,"maxItems":6,"items":_number()},"a":_number(),"b":_number(),"c":_number(),"d":_number(),"L":_number(),"k":_number(),"x0":_number()}
 	var person_fields: Dictionary = {"name":_text(),"role":prose,"backstory":prose,"personality":prose,"age":_number(1,1000000),"occupation":prose,"wants":prose}
 	var steps: Dictionary = {"type":"array","minItems":1,"maxItems":30,"items":_object({"id":_text(80),"text":_text(1000),"status":{"type":"string","enum":["pending","in_progress","done","blocked"]},"evidence":{"type":"string","maxLength":2000}},["id","text","status"])}
-	return Datasets.definitions()+UiPanels.definitions()+Creation.definitions()+[
+	return Datasets.definitions()+UiPanels.definitions()+Creation.definitions()+ModAccess.definitions()+[
 		_tool("tools.groups","List the permitted tool groups and their purposes without loading schemas or world data.",{},[],false,"Compact permitted-group catalogue."),
 		_tool("space.surface","Read whether an actual discovered body has a solid surface and an already-loaded province map. Never builds a map. Includes guidance for charts.map(include_water=true) and native map opening.",{"body":_text()},["body"],false,"Actual solid-surface and loaded-map status."),
 		_tool("navigation.open_surface","Only on player request: open/generate the native surface map of ONE discovered solid body. For a star/gas giant with an already approved artificial surface, opens that shell; otherwise no surface map exists. Map generation is a world change; it does not colonize, build or advance time.",{"body":_text()},["body"],true,"Native body map opened, with actual loaded province status."),
@@ -273,7 +279,7 @@ static func _definitions() -> Array:
 		_tool("navigation.enter_system","Enter a specific native catalogue star_key returned by space.search. Builds the native system if needed and moves the camera; may reveal a native secret. Does not move people, launch a ship, advance time or colonize. Returns actual member names; follow with navigation.focus for an actually returned discovered planet. Never fabricate requested planet suffixes.",{"star_key":_text(100)},["star_key"],true,"Native charted-system, member, camera, day and secret readback."),
 		_tool("time.observe","Set native observation speed 0..3; zero pauses observation. Reviewed stock offers three speeds despite the public facade's wider clamp.",{"speed":{"type":"integer","minimum":0,"maximum":3}},["speed"],true,"Actual pause flag and native speed readback; no fabricated elapsed days."),
 		_tool("orders.read","Read native current queue and deferred submissions.",{},[],false,"Actual queue states, not completed effects.",true),
-		_tool("orders.submit","Submit full order text on a colony through native intake. Parsing/scheduling are separate from execution.",{"body":body,"text":prose},["body","text"],true,"Actual queued or deferred intake; completed=false.",true),
+		_tool("orders.submit","Submit full order text on a colony through native intake. Parsing/scheduling are separate from execution. This does not formalize a negotiated deal in the game's deal/contract interface. Use the relevant executable transaction interface for that; do not silently substitute an order.",{"body":body,"text":prose},["body","text"],true,"Actual queued or deferred intake; completed=false. No transaction or treaty is proven.",true),
 		_tool("orders.cancel","Cancel an existing native queue entry. Native time-jump restrictions remain visible.",{"id":_id()},["id"],true,"Actual absence or unchanged entry.",true),
 		_tool("orders.update","Replace full text on an existing order; it is reassessed, not immediately completed.",{"id":_id(),"text":prose},["id","text"],true,"Exact queued text/status readback.",true),
 		_tool("research.read","Read native research proposals, requirements and current status.",{},[],false,"Actual research records.",true),
@@ -283,6 +289,9 @@ static func _definitions() -> Array:
 		_tool("laws.read","Read current native law records and active public titles.",{},[],false,"Actual pending/active status.",true),
 		_tool("laws.propose","Submit a law in a registered category; this is legislative intake, not immediate enforcement.",{"category":{"type":"string","enum":["basics","rights","economy","order","land","science","defence"]},"text":prose,"decree":{"type":"boolean"}},["category","text"],true,"Actual appended proposal, pending assessment/vote.",true),
 		_tool("diplomacy.send","Submit an exact letter to an existing country through native correspondence. Native communication/response rules remain visible.",{"country":country,"text":prose},["country","text"],true,"Actual retained outgoing letter; no invented reply or treaty.",true),
+		_tool("diplomacy.offers","Read a country's actual current mechanical deal, its revision, any separate order_cmd, pending reply and paged correspondence (newest first). Includes current stocks and treaty. Dialogue alone is not an offer; changed counteroffer terms require player authorization.",{"country":country,"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":50}},["country"],false,"Native correspondence and structured offer; no fabricated agreement.",true),
+		_tool("diplomacy.exchange","Propose a structured resource-for-resource or money-for-resource exchange through the game's actual exchange menu mechanism. Canonical resource keys and integer quantities use the game's stock units. This sends a proposal, never executes a trade. Read diplomacy.offers for the reply; do not replace this with an order.",{"country":country,"give_resource":_text(80),"give_amount":{"type":"integer","minimum":1,"maximum":1000000000000},"receive_resource":_text(80),"receive_amount":{"type":"integer","minimum":1,"maximum":1000000000000}},["country","give_resource","give_amount","receive_resource","receive_amount"],true,"Actual outgoing proposal; completed=false until a real offer is accepted.",true),
+		_tool("diplomacy.accept_offer","Accept only the AI country's existing mechanical offer from diplomacy.offers, with its exact current revision. Match every term to the player's authorization, including resources, quantities and treaty. Never accept only a verbal promise or order_cmd. Uses the native Accept deal action and verifies real stocks/treaty changes. Multiplayer settlement is unavailable.",{"country":country,"expected_offer_revision":_text(64)},["country","expected_offer_revision"],true,"Verified engine deal and before/after stocks/treaty, or an explicit failed/ambiguous result. No order submission.",true),
 		_tool("military.read","Read current native unit records.",{},[],false,"Actual unit identity/owner/location/status.",true),
 		_tool("military.order","Submit full command text to an existing unit belonging to the player; movement/combat occurs later.",{"unit_id":_id(),"text":prose},["unit_id","text"],true,"Actual queued unit order, not arrived/captured territory.",true),
 		_tool("time.advance","Request a native forward time jump. Report actual started/pending state, not invented future outcomes.",{"count":{"type":"integer","minimum":1,"maximum":1000000},"unit":{"type":"string","enum":["days","weeks","months","years","centuries","millennia","million_years","billion_years"]}},["count","unit"],true,"Actual day and jump flag immediately after submission.",true)

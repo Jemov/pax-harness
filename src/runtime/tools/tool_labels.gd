@@ -1,5 +1,7 @@
 extends RefCounted
 const LABELS := {"orders.failed":"Архив проваленных планов","orders.read":"Текущие приказы","orders.submit":"Передать приказ",
+	"mods.list":"Включённые моды","mods.catalogue":"Каталог сущностей модов","mods.inspect":"Состояние сущности мода","mods.ui":"Интерфейс мода","mods.act":"Действие в интерфейсе мода",
+	"diplomacy.offers":"Предложения и переписка страны","diplomacy.exchange":"Предложить обмен ресурсами","diplomacy.accept_offer":"Заключить предложенную сделку",
 	"creation.open_controls":"Открыть управление",
 	"tools.groups":"Группы инструментов","tools.load":"Загрузка группы инструментов",
 	"ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",

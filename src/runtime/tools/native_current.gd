@@ -2,6 +2,7 @@ extends RefCounted
 const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const PersonRecord = preload("res://mods/pax_harness/src/runtime/tools/person_record.gd")
+const Diplomacy = preload("res://mods/pax_harness/src/runtime/tools/diplomacy_tools.gd")
 const TIME_UNITS={"days":"day_list","weeks":"weeks","months":"months","years":"years","centuries":"centuries","millennia":"millennia","million_years":"млн лет","billion_years":"млрд лет"}
 const METHODS := {"characters.list":"conversation","characters.read":"conversation","characters.connect":"conversation",
 	"orders.read":"orders_panel","orders.submit":"order_evaluation","orders.cancel":"orders_panel","orders.update":"orders_panel",
@@ -9,10 +10,12 @@ const METHODS := {"characters.list":"conversation","characters.read":"conversati
 	"laws.read":"law_making","laws.propose":"law_making","diplomacy.send":"letters","military.read":"army_map_view","military.order":"army_map_view","time.advance":"assistant_orders"}
 
 static func available(game: RefCounted, name: String) -> bool:
+	if name in Diplomacy.NAMES: return Diplomacy.available(game,name)
 	var main: Node = Sources.main_node(game)
 	return main != null and METHODS.has(name) and main.has_method(METHODS[name])
 
 static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary:
+	if name in Diplomacy.NAMES: return Diplomacy.execute(game,name,a)
 	var main: Node = Sources.main_node(game)
 	var model: Object = main.model
 	match name:
@@ -63,8 +66,13 @@ static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary
 			return Data.success({"accepted":accepted,"enacted":false},{},{},true) if accepted else Data.failed("tools.native_law_refused")
 		"diplomacy.send":
 			if a.country not in game.countries(): return Data.failed("tools.country_not_found")
+			var faction: Dictionary=model.factions_sim.find_(a.country)
+			var count_before: int=faction.get("correspondence",[]).size()
 			main.letters().write(a.country,a.text)
-			return Data.success({"letter_submitted":true,"treaty_agreed":false},{},{},true)
+			var rows: Array=faction.get("correspondence",[])
+			var retained: bool=rows.slice(count_before).any(func(row: Dictionary): return row.get("from")=="we" and row.get("text")==a.text)
+			var after := {"letter_count":rows.size(),"recent_letters":Data.clean(rows.slice(maxi(0,rows.size()-5)))}
+			return Data.success({"letter_submitted":true,"treaty_agreed":false},{"letter_count":count_before},after,true) if retained else Data.failed("tools.native_letter_not_sent",{"letter_count":count_before},after)
 		"military.read": return Data.success(Data.clean(model.armies.units))
 		"military.order":
 			var unit: Dictionary = _row(model.armies.units,int(a.unit_id))

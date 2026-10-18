@@ -763,5 +763,15 @@
   "pax_harness_bb2a4af3fcbf": "Sending interrupted",
   "pax_harness_3624d07acae5": "Open controls",
   "pax_harness_4b7ab4c3ff50": "Object controls",
-  "pax_harness_68505b6d0475": "Enabled"
+  "pax_harness_68505b6d0475": "Enabled",
+  "pax_harness_mod_group": "Mod entities and interfaces",
+  "pax_harness_mod_list": "Enabled mods",
+  "pax_harness_mod_catalogue": "Mod entity catalogue",
+  "pax_harness_mod_inspect": "Mod entity state",
+  "pax_harness_mod_ui": "Mod interface",
+  "pax_harness_mod_act": "Mod interface action",
+  "pax_harness_action_dispatched": "Action dispatched; outcome unverified",
+  "pax_harness_diplomacy_offers": "Country offers and correspondence",
+  "pax_harness_diplomacy_exchange": "Propose a resource exchange",
+  "pax_harness_diplomacy_accept_offer": "Accept the offered deal"
 }

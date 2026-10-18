@@ -587,9 +587,10 @@ func _render_tool(group: VBoxContainer, message_id: String, event: Dictionary) -
 	var technical: bool = bool(Preferences.value(owner_mod,"technical_details"))
 	var key: String = message_id+":"+str(event.id)
 	var state: String = str(event.get("status","running"))
-	var icon: String = "◌" if state == "running" else "✕" if state in ["failed","interrupted"] else "↗" if state == "submitted" else "✓"
+	var icon: String = "◌" if state == "running" else "✕" if state in ["failed","interrupted"] else "↗" if state in ["submitted","dispatched"] else "✓"
 	var caption: String = L.text(TOOL_LABELS.get(str(event.name),str(event.name)))
 	var detail: String = L.text("ожидаю") if state == "running" else L.text("ошибка") if state == "failed" else L.text("отправлено, ожидает исполнения") if state == "submitted" else L.text("прервано") if state == "interrupted" else _tool_summary(event)
+	if state=="dispatched": detail=L.text("Действие отправлено; результат не проверен")
 	var button := _button(icon+"  "+caption+"  ·  "+detail+("  ⌄" if _expanded.get(key,false) else "  ›"),_toggle.bind(key))
 	button.disabled = not technical
 	button.name = "Tool_"+str(event.id).replace(":","_")

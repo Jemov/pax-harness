@@ -16,6 +16,11 @@ func setup(service: Node, descriptor: Dictionary) -> void:
 	resized.connect(_resize_image); _resize_image()
 	var caption := Label.new(); L.bind(caption,"text",[{"format":"Создано генератором игры · %d × %d","args":[resolved.descriptor.width,resolved.descriptor.height]}])
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(caption)
+	if "owner_mod" in service and service.owner_mod!=null and is_instance_valid(service.owner_mod.chat_ui):
+		var reuse:=Button.new(); reuse.name="UseImageReference_"+str(descriptor.id); reuse.text=L.text("Использовать как референс")
+		reuse.pressed.connect(func(): service.owner_mod.chat_ui.image_attachments.add_image(resolved.texture.get_image(),str(descriptor.get("title","image"))))
+		add_child(reuse)
+
 
 func _resize_image() -> void:
 	if is_instance_valid(_picture) and _picture.texture != null:

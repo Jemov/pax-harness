@@ -1,4 +1,5 @@
 extends Node
+const Body=preload("res://mods/pax_harness/src/creation/authored_body.gd")
 const Surface = preload("res://mods/pax_harness/src/creation/artificial_surface.gd")
 const Policy = preload("res://mods/pax_harness/src/creation/creation_policy.gd")
 const L = preload("res://mods/pax_harness/src/localization/localization.gd")
@@ -19,6 +20,7 @@ var _world_id := 0
 var _bus_registered := false
 var _name_keys: Array=[]
 var _name_language: RefCounted
+var _surface_window: PanelContainer
 signal changed
 
 func setup(owner: Node) -> void:
@@ -26,6 +28,8 @@ func setup(owner: Node) -> void:
 	if api != null and api.get("bus") != null and not _bus_registered:
 		api.bus.on("resource_rows",_resource_rows,70,"pax_harness"); _bus_registered=true
 func clear() -> void:
+	if is_instance_valid(_surface_window): _surface_window.queue_free()
+	_surface_window=null
 	if is_instance_valid(programs): programs.queue_free()
 	programs=null
 	if is_instance_valid(ship_flight): ship_flight.queue_free()
@@ -41,13 +45,25 @@ func clear() -> void:
 func restore(state: Dictionary) -> void:
 	records=state.get("records",{}).duplicate(true); proposals=state.get("proposals",[]).duplicate(true); sequence=int(state.get("sequence",0))
 func snapshot() -> Dictionary:
+	if current() and game.has_method("body_params"):
+		for record: Dictionary in records.values():
+			if record.kind in ["body","surface"]:
+				var name_: String=Body.body_id(record.definition.id) if record.kind=="body" else Surface.body_id(record.definition.id)
+				if name_ in game.body_names(): record["body_state"]={"parameters":game.body_params(name_).duplicate(true)}
 	return {"version":1,"records":records.duplicate(true),"proposals":proposals.duplicate(true),"sequence":sequence}
 func world_ready(current: RefCounted) -> void:
 	if _world_id==current.scene_root().get_instance_id():
 		game=current; return
 	game=current; _world_id=current.scene_root().get_instance_id()
 	for record: Dictionary in records.values():
+		if record.kind=="body": Body.create(self,record.definition)
 		if record.kind=="surface": Surface.create(game,record.definition)
+		if record.kind in ["body","surface"] and game.has_method("set_body_param"):
+			var name_: String=Body.body_id(record.definition.id) if record.kind=="body" else Surface.body_id(record.definition.id)
+			if name_ in game.body_names():
+				for key: String in record.get("body_state",{}).get("parameters",{}):
+					var value: Variant=record.body_state.parameters[key]
+					if key in ["temperature","water","biomass","radiation","atmosphere","urban","magnetic"] and Data.number(value) and float(value)>=0 and float(value)<=1: game.set_body_param(name_,key,float(value))
 	refresh_names()
 	for record: Dictionary in records.values():
 		if record.kind=="object": _spawn(record.definition,record.get("damage",[]),true)
@@ -72,7 +88,7 @@ func summaries() -> Array:
 	var result: Array=[]
 	for id: String in records:
 		var r: Dictionary=records[id]; var d: Dictionary=r.definition
-		result.append({"id":id,"kind":r.kind,"name":d.get("name",{}),"body":d.get("body",""),"behavior":d.get("behavior",""),"from_id":d.get("from_id",""),"to_id":d.get("to_id",""),"days":d.get("days"),"resource_key":r.get("resource_key",""),"surface_body":Surface.body_id(id) if r.kind=="surface" else ""})
+		result.append({"id":id,"kind":r.kind,"name":d.get("name",{}),"body":d.get("body",""),"behavior":d.get("behavior",""),"from_id":d.get("from_id",""),"to_id":d.get("to_id",""),"days":d.get("days"),"resource_key":r.get("resource_key",""),"surface_body":Body.body_id(id) if r.kind=="body" else (Surface.body_id(id) if r.kind=="surface" else "")})
 		if r.kind=="object":
 			result[-1].merge({"destructible":d.get("destructible",false),"voxel_grid_size":d.model.size.duplicate(),"damage_count":r.get("damage",[]).size(),"altitude_km":d.altitude_km,"size_km":d.size_km,"focus_tool":"creation.focus"})
 		if r.kind=="ship_flight": result[-1]["flight"]=r.get("flight",{}).duplicate(true)
@@ -84,6 +100,7 @@ func capabilities() -> Dictionary:
 		"missing_component_message":"Ordinary models work without Voxel Tools. Destructible objects need the optional voxel component; if missing, report that destruction is unavailable and do not claim to create a destructible object.",
 		"resource_classes":Array(game.econ.classes().keys()),"kinds":Policy.KINDS,"player_review_required":true,"apply_tool_exists":false,"parallel_universes_supported":false,
 		"artificial_surfaces":Surface.available(game),"formats":{
+			"body":"{id,name:{ru,en},body:discovered parent,radius_km:0.1..10000,orbit_radius_km:parent radius + own radius or greater,period_days:0..1e8 (0 fixed),provinces_count:integer4..40,climate:{temperature,water,biomass,radiation,atmosphere,magnetic:0..1,urban:0},icon,model?:voxel format,program?:source}. Creates a separate real rocky body with native map/provinces, no free people or resources. Optional model replaces only its native sphere visual. Returned surface_body is its stable native ID. Native colonization and economic simulation remain available; no habitat-specific behavior preset.",
 			"ship_flight":"{id,name:{ru,en},object_id:approved object ID (gate_id accepted as an alias; provide exactly one),waypoints_km?:2..16 [x,y,z] points in the object-oriented frame, in km relative to its centre, each coordinate -100000..100000, adjacent points at least .001km apart, total path at most 1e6km; when omitted a single-ring warp_gate gets an automatic central crossing,ship_name:string,spawn_model?:one model ID from ship_flights.models,ship_length_km:0.01..100 (must fit aperture),duration_seconds:5..120,forward_axis?:-z (default)|+z|-x|+x: actual hull nose axis after provider model transforms}. Verify nose-first travel across multiple scene frames, not one still. Read ship_flights availability/fleet first. Omit spawn_model for an idle, unladen, ungrouped player ship in the same system; include it ONLY if player explicitly authorized creating a test ship. Player Apply starts a real registered Dyson ship along the local 3D route. Any approved object, any discovered body; no specific object/body/model IDs are assumed. Use creation.inspect to read geometry first. Paths use constant speed along segments; corners change direction instantly, so add points for gentler turns. This route moves a registered actor; arbitrary gameplay mechanics must be authored separately in object.program. Collision/damage/teleportation are NOT simulated by this route alone; do not claim passage through solid geometry is physically verified. Scene seconds continue while calendar time is paused. This is local flight, NOT interstellar teleportation or paid construction. Progress and endpoint persist; a new native order releases pose control. Missing mod/unsupported ship scene reports a specific error. Replay button starts the same ship again, never duplicates it.",
 			"surface":"{id,name:{ru,en},body:discovered star or gas giant,altitude_km:100..1e8,provinces_count:integer 4..40,climate:{temperature,water,biomass,radiation,atmosphere,urban,magnetic}}. All climate scales 0..1; urban must be zero. Creates a native rock shell at the parent centre, radius parent radius+altitude, with real native provinces/map. Original body is preserved. No population, colony, resources or completed research are granted. This is explicitly approved scenario authoring, not a free normal terraforming order. Saved per campaign; stable body ID harness_surface_<id>. Requires player Apply. Call space.surface on parent to discover the shell.",
 			"common":"id: lowercase a-z0-9_ starting with a letter, up to 48; name:{ru,en}; icon:gate/station/crystal/dust/panel or {rows:[4..16 equal strings of hex palette indices, 0 transparent],palette:[#RRGGBB]}",
@@ -108,7 +125,7 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 	if name=="creation.program_status": return _programs().status(str(args.get("id","")))
 	if name=="creation.inspect":
 		var id: String=str(args.get("object_id",""))
-		if not records.has(id) or records[id].kind!="object": return {"ok":false,"code":"creation.object_required"}
+		if not records.has(id): return {"ok":false,"code":"creation.object_required"}
 		return {"ok":true,"result":records[id].duplicate(true)}
 	if name=="creation.capabilities": return {"ok":true,"result":capabilities()}
 	if name=="creation.list":
@@ -162,19 +179,24 @@ func _proposal_receipt(p: Dictionary) -> Dictionary:
 func _references(kind: String, d: Dictionary) -> Dictionary:
 	if kind not in ["warp_transit","resource_style","object_damage","behavior"] and records.has(d.id): return {"ok":false,"code":"creation.id_exists"}
 	if kind=="behavior":
-		if not records.has(d.object_id) or records[d.object_id].kind!="object": return {"ok":false,"code":"creation.object_required"}
-		if records.has(d.id) and records[d.id].kind!="behavior" and not (records[d.id].kind=="object" and d.id==d.object_id): return {"ok":false,"code":"creation.id_exists"}
+		if not records.has(d.object_id) or records[d.object_id].kind not in ["object","body"]: return {"ok":false,"code":"creation.object_required"}
+		if records.has(d.id) and records[d.id].kind!="behavior" and not (records[d.id].kind in ["object","body"] and d.id==d.object_id): return {"ok":false,"code":"creation.id_exists"}
 	if definition_program_count(kind,d)>=64: return {"ok":false,"code":"program.instance_limit"}
 	if kind=="ship_flight": return _flights().validate(d)
 	if kind=="object_damage":
-		if not records.has(d.object_id) or records[d.object_id].kind!="object" or not records[d.object_id].definition.get("destructible",false): return {"ok":false,"code":"creation.object_not_destructible"}
+		if not records.has(d.object_id) or records[d.object_id].kind not in ["object","body"] or not records[d.object_id].definition.get("destructible",false): return {"ok":false,"code":"creation.object_not_destructible"}
 		for axis: int in 3:
 			if float(d.center[axis])>=float(records[d.object_id].definition.model.size[axis]): return {"ok":false,"code":"creation.damage_outside_object"}
 		if not VoxelObject.supported(api): return {"ok":false,"code":"creation.voxel_component_required"}
 		if records[d.object_id].get("damage",[]).size()>=128: return {"ok":false,"code":"creation.damage_limit"}
 	if records.size()>=128: return {"ok":false,"code":"creation.content_limit"}
-	if kind in ["object","resource","surface"]:
+	if kind in ["object","resource","surface","body"]:
 		if d.body not in game.body_names() or not game.body(d.body).get("open",false): return {"ok":false,"code":"tools.unknown_or_hidden_body"}
+	if kind=="body":
+		if not Surface.available(game): return {"ok":false,"code":"creation.native_surface_unavailable"}
+		if Body.body_id(d.id) in game.body_names(): return {"ok":false,"code":"creation.surface_name_collision"}
+		if float(d.orbit_radius_km)<=float(game.body(d.body).r_km)+float(d.radius_km): return {"ok":false,"code":"creation.body_orbit_intersects_parent"}
+		if records.values().filter(func(r: Dictionary): return r.kind=="body").size()>=8: return {"ok":false,"code":"creation.surface_limit"}
 	if kind=="surface":
 		if not Surface.available(game): return {"ok":false,"code":"creation.native_surface_unavailable"}
 		if game.body(d.body).get("genus") not in ["star","gas"]: return {"ok":false,"code":"creation.star_or_gas_required"}
@@ -224,6 +246,7 @@ func apply_from_player(id: String) -> Dictionary:
 			"ship_flight": result=_flights().start(d)
 			"object_damage": result=damage_from_player(d.object_id,d.center,float(d.radius),false)
 			"surface": result=Surface.create(game,d)
+			"body": result=Body.create(self,d)
 			"resource_style": records[d.resource_id].definition["text_color"]=d.text_color
 			"object":
 				if not _spawn(d): result={"ok":false,"code":"creation.voxel_model_unavailable"}
@@ -245,7 +268,7 @@ func apply_from_player(id: String) -> Dictionary:
 		if not result.ok: p["error"]=result.code; changed.emit(); return result
 		if p.kind not in ["warp_transit","resource_style","object_damage"]:
 			var record: Dictionary={"kind":p.kind,"definition":d.duplicate(true)}
-			if p.kind=="behavior" and records.get(d.id,{}).get("kind")=="object":
+			if p.kind=="behavior" and records.get(d.id,{}).get("kind") in ["object","body"]:
 				record=records[d.id].duplicate(true); record.definition["program"]=d.program.duplicate(true)
 				if not d.get("preserve_state",true): record.erase("runtime")
 			if p.kind=="ship_flight": record["flight"]=result.flight
@@ -280,6 +303,7 @@ func _spawn(d: Dictionary, cuts: Array=[], restoring: bool=false) -> bool:
 	if mesh==null and restoring: mesh=VoxelObject.static_snapshot(api,d,cuts)
 	if not mesh is MeshInstance3D: return false
 	if mesh.mesh==null or (mesh.mesh.get_surface_count()==0 and cuts.is_empty()): mesh.free(); return false
+	VoxelObject.space_material(mesh)
 	var radius: float=1.0
 	if parent is MeshInstance3D and parent.mesh!=null: radius=parent.get_aabb().size[parent.get_aabb().size.max_axis_index()]*0.5
 	var r_km: float=maxf(0.001,float(game.body(d.body).get("r_km",1)))
@@ -296,6 +320,9 @@ func _spawn(d: Dictionary, cuts: Array=[], restoring: bool=false) -> bool:
 	mesh.set_meta("harness_model_center",center)
 	meshes.append(mesh); return true
 func focus_object(id: String) -> Dictionary:
+	if current() and records.get(id,{}).get("kind")=="body":
+		focus_body(id)
+		return {"ok":true,"result":{"object_id":id,"body":Body.body_id(id),"camera_target":"body","physical_travel":false}}
 	if not is_instance_valid(object_navigation):
 		object_navigation=preload("res://mods/pax_harness/src/creation/object_navigation.gd").new(); game.scene_root().add_child(object_navigation); object_navigation.setup(self)
 	return object_navigation.focus(id)
@@ -335,6 +362,7 @@ func refresh_names() -> void:
 	_name_language=lang
 	for record: Dictionary in records.values():
 		var d: Dictionary=record.definition; var keys: Array=[]
+		if record.kind=="body": keys=["body_"+Body.body_id(d.id),"тело_"+Body.body_id(d.id)]
 		if record.kind=="surface": keys=["body_"+Surface.body_id(d.id),"тело_"+Surface.body_id(d.id)]
 		if record.kind=="resource": keys=["рес_"+str(record.resource_key),"resource_"+str(record.resource_key)]
 		for key: String in keys:
@@ -359,3 +387,21 @@ func focus_flight(id: String) -> Dictionary:
 		if placement.get("focus_object","")!="": return focus_object(str(placement.focus_object))
 		game.focus(str(placement.body),true); return {"ok":true}
 	return focus_object(str(r.definition.get("object_id",r.definition.get("gate_id",""))))
+
+func focus_body(id: String,map_: bool=false) -> void:
+	if is_instance_valid(object_navigation): object_navigation.active=false
+	if is_instance_valid(owner_mod.chat_ui): owner_mod.chat_ui.close()
+	if is_instance_valid(view): view.window.hide()
+	var ui: Variant=game.scene_root().get("ui")
+	if ui is Object and ui.get("menu_node") is Object and ui.menu_node.has_method("закрыть"): ui.menu_node.call("закрыть")
+	var body: String=Body.body_id(id)
+	if not map_: game.focus(body,true); return
+	game.province_count(body)
+	var result: Dictionary=preload("res://mods/pax_harness/src/visualization/maps/chart_map_data.gd").execute(game,{"body":body,"title":L.text("Провинции · ")+body_title(body),"source":L.text("Текущие данные провинций · ")+body_title(body)+", "+game.date_text()})
+	if is_instance_valid(_surface_window): _surface_window.queue_free()
+	var content:=VBoxContainer.new()
+	if result.ok:
+		var chart:=preload("res://mods/pax_harness/src/visualization/views/chat_chart_view.gd").new(); content.add_child(chart); chart.setup(result.result.chart)
+	else:
+		var error:=Label.new(); error.text=str(result.get("code","charts.geometry_unavailable")); error.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; content.add_child(error)
+	_surface_window=game.add_window(body_title(body),content,Vector2(900,620)); _surface_window.name="AuthoredBodyMap"; _surface_window.show()

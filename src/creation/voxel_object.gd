@@ -1,4 +1,7 @@
 extends RefCounted
+const SPACE_MATERIAL=preload("res://mods/pax_harness/shaders/authored_model.gdshader")
+static func space_material(node: MeshInstance3D) -> void:
+	var material:=ShaderMaterial.new(); material.shader=SPACE_MATERIAL; node.material_override=material
 ## A detached, bounded editable volume; no terrain, planet or population is created.
 static func supported(api: Node) -> bool:
 	return api!=null and api.get("voxel")!=null and api.voxel.has_method("available") and api.voxel.available()

@@ -10,7 +10,7 @@ var _queue: Array=[]
 func setup(value: Node) -> void: service=value; process_priority=1300
 func install(record_id: String,preserve: bool=false) -> void:
 	var record: Dictionary=service.records[record_id]
-	var owner_id: String=record_id if record.kind=="object" else str(record.definition.object_id)
+	var owner_id: String=record_id if record.kind in ["object","body"] else str(record.definition.object_id)
 	var program: Dictionary=record.definition.program
 	var state: Dictionary=program.state.duplicate(true)
 	if preserve: state.merge(record.get("runtime",{}).get("state",{}),true)
@@ -55,7 +55,7 @@ func dispatch(id: String,event_name: String,payload: Dictionary={}) -> Dictionar
 		_queue.append({"id":id,"event":event_name,"payload":payload.duplicate(true)}); return {"ok":true,"queued":true}
 	_frame_runs+=1
 	var event: Dictionary=payload.duplicate(true); event.merge({"name":event_name,"time":float(record.runtime.clock)},true)
-	var result: Dictionary=VM.new().run(record.definition.program.handlers[event_name],record.runtime.state,event,{"id":entry.owner_id,"body":service.records[entry.owner_id].definition.body},entry.host.call_operation)
+	var result: Dictionary=VM.new().run(record.definition.program.handlers[event_name],record.runtime.state,event,{"id":entry.owner_id,"body":entry.host.object_info(entry.owner_id).get("result",{}).get("body","")},entry.host.call_operation)
 	record.runtime.state=result.state; record.runtime.runs=int(record.runtime.runs)+1
 	if not result.ok:
 		record.runtime.enabled=false; record.runtime.last_error=result.error
@@ -74,6 +74,10 @@ func feedback(chat_id: String) -> Array:
 	return rows.slice(-8)
 func _process(delta: float) -> void:
 	if not is_instance_valid(service) or not service.current(): return
+	# Native economic steps run on the world's worker thread. Resume scene events
+	# after the step, retaining the last observed day for day_change.
+	var rewind: Variant=service.game.scene_root().get("rewind_state")
+	if rewind is Object and bool(rewind.get("rewinding")): return
 	_frame_runs=0
 	while not _queue.is_empty() and _frame_runs<16:
 		var pending: Dictionary=_queue.pop_front(); dispatch(pending.id,pending.event,pending.payload)

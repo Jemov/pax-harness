@@ -139,7 +139,6 @@ func relocate(unit: Variant,body: String,point: Array,forward: Array,focus: Stri
 	var kept: bool=["owner","cargo","troops","hp","hp_max","shield","shield_max","weapons","model","fleet"].all(func(k: String): return before.get(k)==after.get(k))
 	if not kept or unit.get_instance_id()!=entity: return {"ok":false,"code":"program.actor_state_mismatch"}
 	if focus!="": service.focus_object(focus)
-	else: service.game.focus(body,true)
 	return {"ok":true,"binding":binding,"result":{"actor":"dyson:"+str(unit.title),"entity_id":entity,"body":body,"star":star,"position_km":point.duplicate(),"same_entity":true,"cargo_passengers_health_preserved":kept,"calendar_day":service.game.day()}}
 func _process(delta: float) -> void:
 	if not is_instance_valid(service) or not service.current(): return

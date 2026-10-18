@@ -3,8 +3,8 @@ extends RefCounted
 ## are supplied by the host. No dynamic GDScript, reflection or external process.
 const Data=preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const OPS=["+","-","*","/","%","==","!=",">",">=","<","<=","and","or","not","min","max","clamp","len","concat","vadd","vscale","dot","distance","at"]
-const CALLS=["actor.read","actors.list","actor.move","actor.set","object.read","object.move","object.damage","resource.add","ui.message"]
-const QUERIES=["actor.read","actors.list","object.read"]
+const CALLS=["body.read","body.set","actor.read","actors.list","actor.spawn","actor.move","actor.set","object.read","object.move","object.damage","resource.read","resource.add","ui.message"]
+const QUERIES=["body.read","actor.read","actors.list","object.read","resource.read"]
 var host: Callable
 var context: Dictionary
 var remaining:=4096

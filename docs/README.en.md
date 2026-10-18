@@ -1,6 +1,14 @@
 # Pax Harness
 
+**Image references:** copy a picture and paste it into the composer with **Ctrl+V** or the paperclip button. Generated images also have a **Use as reference** button. Attach up to two images alongside your text. Enable **Image input** in the selected model's advanced settings when the model supports it. With image input disabled, Harness warns you and sends your text with a notice that the pixels are unavailable. An explicit API rejection of image input triggers one text-only retry, preserving your original message.
+
+**Artificial worlds and production:** the assistant can author a separate native body with its own model, orbit and 4–40 territories. Normal passenger transports can settle it. Its program can read actual native population and control climate parameters. With Dyson Sphere Program enabled, general operations also read real colony stocks, consume resources and spawn native ships. The agent writes the shipyard queue, costs, timing and controls. Creating a body does not grant settlers or supplies.
+
 An in-game assistant workspace for **Pax Universe 0.31.5**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
+
+Queued messages use a compact row with an attachment thumbnail. The right-hand actions send a correction now or remove it from the queue. The **…** menu offers editing, moving to a new chat and queue preferences. Click the row to read the full text. Editing holds dispatch; moving to a new chat preserves text and pictures as a draft.
+
+![Compact queued message and action menu](../media/queue-menu-en.webp)
 
 [Русское описание](../README.md)
 
@@ -36,7 +44,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.16.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.17.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 

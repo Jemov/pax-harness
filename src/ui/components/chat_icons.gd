@@ -2,6 +2,7 @@ extends RefCounted
 ## Re-rasterize SVG icons at the viewport's actual display density.
 static var _cache: Dictionary = {}
 const PATHS := {
+	"attachment":"M8 13l7-7a3 3 0 0 1 4 4l-9 9a5 5 0 0 1-7-7l9-9m-5 12l9-9",
 	"image":"M3 4h18v16H3zM3 16l5-5 5 5 3-3 5 5M15 8h1",
 	"minus":"M5 12h14",
 	"plus":"M5 12h14M12 5v14",

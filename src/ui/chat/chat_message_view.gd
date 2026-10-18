@@ -16,9 +16,17 @@ var _content_text := ""
 var _content_events: Array = []
 var _content_initialized := false
 var _content_complete := false
+var _queued_view: Control
 
 func update_message(ui: Node, message: Dictionary) -> void:
 	var role: String = str(message.get("role","assistant"))
+	if role=="user" and (message.get("status")=="queued" or message.get("queue_entry",false) and message.get("status") in ["cancelled","interrupted"]):
+		if not is_instance_valid(_queued_view):
+			ui._clear(self); _header=null; _role="queued"
+			_queued_view=preload("res://mods/pax_harness/src/ui/chat/queued_message_view.gd").new(); add_child(_queued_view); _queued_view.setup(ui)
+		_queued_view.update_message(message); return
+	if _role=="queued":
+		ui._clear(self); _queued_view=null; _header=null
 	if _header == null or role != _role:
 		ui._clear(self); _role = role; _header_state = []; _event_state = []
 		_content_initialized = false; _content_events = []
@@ -44,19 +52,16 @@ func update_message(ui: Node, message: Dictionary) -> void:
 	for reference: Dictionary in message.get("references",[]):
 		var target: Dictionary = ui.store.find(str(reference.id))
 		references.append([reference,target.get("title",reference.get("title",L.text("Удалённый чат"))),target.is_empty()])
-	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status")]
+	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status"),message.get("images",[]),message.get("image_notice","")]
 	if _header_state != header:
 		_header_state = header.duplicate(true); ui._clear(_header)
 		_header.add_child(ui._label((L.text("Вы") if role == "user" else "✦  "+ui.agent_name.display_name)+"   ·   "+str(message.get("date","")),13,ui.QUIET if role == "user" else ui.ACCENT))
+		if role=="user": preload("res://mods/pax_harness/src/ui/chat/chat_image_attachments.gd").message_preview(ui,_header,message.get("images",[]),str(message.get("image_notice","")))
 		for reference: Array in references:
 			var link: Button = ui._button("@ "+str(reference[1]),ui.owner_mod.chat_select.bind(str(reference[0].id)))
 			link.set_meta("mod_user_text",true); link.disabled = reference[2]; link.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			link.add_theme_color_override("font_color",ui.ACCENT); _header.add_child(link)
 		if not message.get("origin",{}).is_empty(): _header.add_child(ui._label(L.text("Из чата «")+str(message.origin.get("title",""))+"»"+(L.text(" · в очереди") if message.get("status") == "queued" else ""),12,ui.QUIET))
-		if role == "user" and message.get("status") == "queued":
-			var cancel: Button = ui._button(L.text("В очереди · отменить"),ui.owner_mod.chat_cancel_queued.bind(str(message.id)))
-			_header.add_child(cancel)
-		elif role == "user" and message.get("status") == "cancelled": _header.add_child(ui._label(L.text("Отправка отменена"),12,ui.QUIET))
 
 	if role=="assistant": _creations.update_message(ui,message)
 	var events: Array = [message.get("events",[]),message.get("status"),message.has("stream"),message.get("elapsed_ms",0),ui._expanded]

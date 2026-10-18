@@ -11,6 +11,9 @@ var _elapsed:=0.0
 func label(text: String) -> Label:
 	var item:=Label.new(); item.text=text; item.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; item.size_flags_horizontal=Control.SIZE_EXPAND_FILL; return item
 func text(value: Dictionary) -> String: return str(value.get(L.language(),value.get("en","")))
+func field_text(value: Variant) -> String:
+	if value is Dictionary and value.get("ru") is String and value.get("en") is String: return text(value)
+	return (L.text("Да") if value else L.text("Нет")) if value is bool else (str(int(value)) if value is float and value==floorf(value) else (str(value) if value!=null else "—"))
 func setup(value: Node,id: String,source: Dictionary) -> void:
 	service=value; identity=id; program=source
 	name="EntityProgram_"+id
@@ -45,7 +48,7 @@ func refresh() -> void:
 		var value: Variant={"state":runtime.get("state",program.state)}
 		for part: String in path.split("."):
 			value=value.get(part) if value is Dictionary else null
-		fields[path].text=(L.text("Да") if value else L.text("Нет")) if value is bool else (str(int(value)) if value is float and value==floorf(value) else (str(value) if value!=null else "—"))
+		fields[path].text=field_text(value)
 		fields[path].tooltip_text=fields[path].text
 	var error: Dictionary=runtime.get("last_error",{})
 	feedback.text=(L.text("Ошибка программы: ")+str(error.get("code",""))+" · "+str(error.get("path",""))+"\n"+L.text("Программа остановлена. Подробности доступны агенту.")) if not error.is_empty() else (L.text("Ожидает применения проекта") if runtime.is_empty() else "")

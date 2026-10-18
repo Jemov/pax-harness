@@ -31,7 +31,7 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 	var delivery_id: String = store._id("delivery:")
 	var user_id: String = store._id("message:")
 	var origin: Dictionary = {"chat_id":source_id,"title":source.title,"delivery_id":delivery_id,"depth":1}
-	target.messages.append({"id":user_id,"role":"user","text":text,"date":owner_mod._game.date_text(),"status":"queued","events":[],"origin":origin,"references":[{"id":source_id,"title":source.title}]})
+	target.messages.append({"id":user_id,"role":"user","text":text,"date":owner_mod._game.date_text(),"status":"queued","events":[],"origin":origin,"references":[{"id":source_id,"title":source.title}],"queue_entry":true})
 	var delivery: Dictionary = {"id":delivery_id,"key":key,"source_id":source_id,"target_id":target.id,"user_message_id":user_id,
 		"source_message_id":str(scope.get("message_id","")),"status":"queued","text":text,"origin":origin}
 	store.deliveries.append(delivery)

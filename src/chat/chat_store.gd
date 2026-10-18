@@ -23,6 +23,7 @@ func restore(data: Dictionary) -> void:
 	campaign_instructions = str(data.get("campaign_instructions",""))
 	deliveries = data.get("deliveries",[]).duplicate(true) if data.get("deliveries") is Array else []
 	for delivery: Dictionary in deliveries:
+		delivery.erase("editing")
 		if delivery.get("status") in ["queued","running"]: delivery.status = "interrupted"
 	sections = data.get("sections",[]).duplicate(true) if data.get("sections") is Array else []
 	chats = data.get("chats",[]).duplicate(true) if data.get("chats") is Array else []
@@ -34,6 +35,7 @@ func restore(data: Dictionary) -> void:
 		chat["pinned"] = bool(chat.get("pinned",false))
 		if section(str(chat.get("section_id",""))).is_empty(): chat["section_id"] = ""
 		for message: Dictionary in chat.get("messages",[]):
+			if message.get("role")=="user" and deliveries.any(func(d: Dictionary): return d.get("user_message_id")==message.get("id")): message["queue_entry"]=true
 			if message.get("status") not in ["running","queued"]: continue
 			message.status = "interrupted"
 			if message.get("kind") == "compaction": message.text = L.text("Сжатие прервано при выходе")
@@ -142,7 +144,7 @@ func history(id: String, options: Dictionary = {}) -> Dictionary:
 		"has_more":end-page.size()>0,"next_offset":offset+page.size(),"order":"newest_page_in_chronological_order",
 		"note":"Only the captured chat is searched. These are prior messages, not proof of current game facts."}
 
-func begin(question: String, date: String, chat_id: String = "", refs: Array = [], origin: Dictionary = {}, existing_user: String = "") -> Dictionary:
+func begin(question: String, date: String, chat_id: String = "", refs: Array = [], origin: Dictionary = {}, existing_user: String = "", images: Array = []) -> Dictionary:
 	if chat_id == "" and current().is_empty(): create()
 	var id: String = selected if chat_id == "" else chat_id
 	var chat: Dictionary = find(id)
@@ -154,21 +156,21 @@ func begin(question: String, date: String, chat_id: String = "", refs: Array = [
 		chat["title_pending"] = true
 	chat.updated = Time.get_unix_time_from_system()
 	chat.draft = ""
-	chat["draft_refs"] = []
+	chat["draft_refs"] = []; chat["draft_images"] = []
 	var headers: Array = reference_headers(refs)
 	var user_id: String = existing_user
 	if user_id == "":
 		user_id = _id("message:")
-		chat.messages.append({"id":user_id,"role":"user","text":question,"date":date,"status":"complete","events":[],"references":headers,"origin":origin.duplicate(true)})
+		chat.messages.append({"id":user_id,"role":"user","text":question,"date":date,"status":"complete","events":[],"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true)})
 	else:
 		for row: Dictionary in chat.messages:
 			if row.id == user_id:
 				row.status = "complete"
-				headers = row.get("references",[]).duplicate(true)
+				headers = row.get("references",[]).duplicate(true); images=row.get("images",[]).duplicate(true)
 	var message_id: String = _id("message:")
 	chat.messages.append({"id":message_id,"role":"assistant","text":"","date":date,"status":"running","events":[],"started_ms":Time.get_ticks_msec(),"elapsed_ms":0})
 	changed.emit()
-	return {"chat_id":id,"message_id":message_id,"user_message_id":user_id,"references":headers,"origin":origin.duplicate(true)}
+	return {"chat_id":id,"message_id":message_id,"user_message_id":user_id,"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true)}
 
 func reference_headers(ids: Array) -> Array:
 	var rows: Array = []
@@ -380,14 +382,15 @@ func export_chat(id: String, format: String = "markdown") -> String:
 func checkpoint_message(summary: String) -> Dictionary:
 	return {"who":"ВИ","what":"Earlier conversation checkpoint. Historic context, not proof of current world facts:\n<compacted-summary>\n"+summary+"\n</compacted-summary>"}
 
-func enqueue_user(text: String, date: String, refs: Array = []) -> bool:
+func enqueue_user(text: String, date: String, refs: Array = [], images: Array = []) -> bool:
+	if text.strip_edges().is_empty() and not images.is_empty(): text=L.text("Рассмотри прикреплённое изображение.")
 	if text.strip_edges().is_empty() or current().is_empty(): return false
 	if deliveries.filter(func(delivery: Dictionary): return delivery.get("status") == "queued").size() >= 8: return false
 	var chat: Dictionary = current(); var user_id: String = _id("message:"); var delivery_id: String = _id("delivery:")
 	var headers: Array = reference_headers(refs)
-	chat.messages.append({"id":user_id,"role":"user","text":text,"date":date,"status":"queued","events":[],"references":headers,"origin":{}})
-	deliveries.append({"id":delivery_id,"key":delivery_id,"source_id":"","target_id":chat.id,"user_message_id":user_id,"source_message_id":"","status":"queued","text":text,"origin":{},"references":headers})
-	chat.draft = ""; chat["draft_refs"] = []; changed.emit(); return true
+	chat.messages.append({"id":user_id,"role":"user","text":text,"date":date,"status":"queued","events":[],"references":headers,"origin":{},"images":images.duplicate(true),"queue_entry":true})
+	deliveries.append({"id":delivery_id,"key":delivery_id,"source_id":"","target_id":chat.id,"user_message_id":user_id,"source_message_id":"","status":"queued","text":text,"origin":{},"references":headers,"images":images.duplicate(true)})
+	chat.draft = ""; chat["draft_refs"] = []; chat["draft_images"]=[]; changed.emit(); return true
 
 func cancel_queued(message_id: String) -> void:
 	for delivery: Dictionary in deliveries:
@@ -396,3 +399,25 @@ func cancel_queued(message_id: String) -> void:
 		for message: Dictionary in find(str(delivery.target_id)).get("messages",[]):
 			if message.id == message_id: message.status = "cancelled"
 		changed.emit(); return
+
+func queued_delivery(message_id: String) -> Dictionary:
+	for delivery: Dictionary in deliveries:
+		if delivery.user_message_id==message_id and delivery.status=="queued": return delivery
+	return {}
+
+func edit_queued(message_id: String,text: String) -> bool:
+	var delivery: Dictionary=queued_delivery(message_id)
+	if delivery.is_empty() or text.strip_edges().is_empty(): return false
+	delivery.text=text; delivery.erase("editing")
+	# The player edited this text directly, even if it originated in another chat.
+	delivery.origin={}; delivery.source_id=""; delivery.source_message_id=""
+	for message: Dictionary in find(str(delivery.target_id)).messages:
+		if message.id==message_id: message.text=text; message.origin={}
+	changed.emit(); return true
+
+func remove_queued(message_id: String) -> bool:
+	var delivery: Dictionary=queued_delivery(message_id)
+	if delivery.is_empty(): return false
+	var chat: Dictionary=find(str(delivery.target_id))
+	chat.messages=chat.messages.filter(func(message: Dictionary): return message.id!=message_id)
+	deliveries.erase(delivery); changed.emit(); return true

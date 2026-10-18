@@ -90,7 +90,7 @@ func start(source: Dictionary, scope: Dictionary, registry: RefCounted, send: Ca
 	var token := "agent:%d" % _sequence
 	_sessions[token] = {"source":source.duplicate(true),"scope":Groups.session_scope(scope),"registry":registry,
 		"send":send,"finish":finish,"native":native.duplicate(),"round":0,"count":0,"ledger":{},
-		"receipts":[],"messages":[],"pending":0,"terminal":false,"native_delivered":false,"operations":{},"pending_images":[]}
+		"receipts":[],"messages":[],"pending":0,"terminal":false,"native_delivered":false,"operations":{},"pending_images":source.get("user_images",[]).duplicate(true)}
 	_step(token)
 	return token
 
@@ -146,6 +146,8 @@ func _step(token: String) -> void:
 	if s.scope.get("analysis_child",false): packet["analysis_child"] = true
 	if s.source.has("chat_references"): packet.data["attached_chats"] = s.source.chat_references
 	if s.source.has("chat_origin"): packet.data["message_origin"] = s.source.chat_origin
+	if s.source.has("image_references"): packet.data["image_references"]=s.source.image_references
+	if s.source.has("image_notice"): packet.data["image_notice"]=s.source.image_notice
 	if s.has("chart_feedback"): packet.data["format_feedback"] = s.chart_feedback.duplicate(true)
 	if s.has("format_feedback"): packet.data["format_feedback"] = s.format_feedback.duplicate(true)
 	if s.has("loop_feedback"): packet.data["loop_feedback"] = s.loop_feedback.duplicate(true)
@@ -157,6 +159,8 @@ func _step(token: String) -> void:
 	_notify(s,"step.start",{"round":s.round,"advertised_tool_names":advertised,"tool_schema_chars":JSON.stringify(tools).length(),"loaded_tool_groups":s.scope.get("loaded_tool_groups",[]).duplicate()})
 	# Only the immediately following request sees a new capture. Compaction and
 	# saved receipts contain references, never encoded pixels or image blocks.
+	for image: Dictionary in s.source.get("user_images",[]):
+		if not s.pending_images.any(func(item: Dictionary): return item.id==image.id) and s.pending_images.size()<Vision.MAX_IMAGES: s.pending_images.append(image)
 	packet["image_token_reserve"] = Vision.token_reserve(s.pending_images)
 	_prepare_packet(token,packet,false)
 
@@ -204,6 +208,17 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 		_discard(token)
 		return
 	if step != s.pending or s.terminal: return
+	# A rejected image request executed no tools. Retry its original text once,
+	# explicitly disclosing that pixels were omitted; never replay tool effects.
+	if not s.last_packet.get("request_attachments",[]).is_empty() and not s.get("image_fallback",false) and Vision.unsupported_error(response):
+		s["image_fallback"]=true; s.source["user_images"]=[]
+		s.source["image_notice"]="The selected API/model rejected image input. The player supplied an image, but you CANNOT see its pixels. Continue using the original text; acknowledge the unavailable image and never invent its appearance."
+		if s.source.has("image_references"): s.source.image_references.available_to_model=false
+		var retry: Dictionary=s.last_packet.duplicate(true); retry.erase("request_attachments"); retry.image_token_reserve=0
+		retry.data["image_notice"]=s.source.image_notice
+		if retry.data.has("image_references"): retry.data.image_references.available_to_model=false
+		_notify(s,"image.fallback",{"reason":"model_rejected_images","text_preserved":true})
+		s.pending+=1; _prepare_packet(token,retry,false); return
 	var error_text: String = JSON.stringify(response).to_lower()
 	if ("context_length_exceeded" in error_text or "maximum context length" in error_text or "context window exceeded" in error_text) and not s.get("overflow_retried",false) and s.scope.get("compact_packet",Callable()).is_valid():
 		s["overflow_retried"] = true

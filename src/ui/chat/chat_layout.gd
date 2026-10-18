@@ -136,6 +136,7 @@ static func composer(ui: Node, body: VBoxContainer) -> void:
 		style.set_corner_radius_all(16)
 		ui.send_button.add_theme_stylebox_override(state,style)
 	actions.add_child(ui.send_button)
+	ui.image_attachments=preload("res://mods/pax_harness/src/ui/chat/chat_image_attachments.gd").new(); ui.add_child(ui.image_attachments); ui.image_attachments.setup(ui,fields,actions)
 	var statistics := HBoxContainer.new()
 	statistics.name = "SessionStatistics"
 	statistics.alignment = BoxContainer.ALIGNMENT_CENTER

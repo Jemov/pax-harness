@@ -36,13 +36,17 @@ The complete field requirements and examples are returned by `creation.program_s
 
 | Operation | Result |
 | --- | --- |
+| `body.read` | Actual native population, colony status and climate of a discovered body |
+| `body.set` | Changes climate parameters on an approved artificial body or shell |
 | `actor.read`, `actors.list` | Actual player ship data, including health, cargo and position |
+| `actor.spawn` | Produces an actual Dyson Sphere Program ship; the program defines costs, queues and timing |
 | `actor.move` | Relocates the same ship to a point near a discovered body; retains cargo, troops, health and owner, cancels previous orders |
 | `actor.set` | Changes health or shields within native maxima |
 | `object.read` | Position, axes and definition of an approved object |
 | `object.move` | Moves an authored object and persists its transform |
 | `object.damage` | Removes a bounded region of a destructible voxel object |
 | `resource.add` | Changes existing native resource stock in an actual colony |
+| `resource.read` | Reads actual stocks for cost and power checks |
 | `ui.message` | Writes a program log message |
 
 `actor.move.position_km` is body-centred, in world axes. Internally the held pose and heading persist in the body frame, so scene reorientation on load retains the same planet-relative location. To calculate an exit-relative offset, read `object.read`, scale its chosen axis by the distance, then add its position. The runtime does not assume an object is a gate: the program defines the sensor, conditions and destination.

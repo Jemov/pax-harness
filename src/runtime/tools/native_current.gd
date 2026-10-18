@@ -2,6 +2,7 @@ extends RefCounted
 const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const PersonRecord = preload("res://mods/pax_harness/src/runtime/tools/person_record.gd")
+const TIME_UNITS={"days":"day_list","weeks":"weeks","months":"months","years":"years","centuries":"centuries","millennia":"millennia","million_years":"млн лет","billion_years":"млрд лет"}
 const METHODS := {"characters.list":"conversation","characters.read":"conversation","characters.connect":"conversation",
 	"orders.read":"orders_panel","orders.submit":"order_evaluation","orders.cancel":"orders_panel","orders.update":"orders_panel",
 	"research.read":"research","research.propose":"research","research.confirm":"research","research.cancel":"research",
@@ -72,7 +73,7 @@ static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary
 			return Data.success({"submitted":true,"arrived":false},{},{},true)
 		"time.advance":
 			if main.rewind_state.rewinding: return Data.failed("tools.time_jump_already_active")
-			main.assistant_orders().rewind_from_ai(int(a.count),a.unit,false)
+			main.assistant_orders().rewind_from_ai(int(a.count),TIME_UNITS[a.unit],false)
 			return Data.success({"jump_active":main.rewind_state.rewinding,"future_effects_unknown":true},{},{},true)
 	return Data.failed("tools.unknown_tool")
 

@@ -10,7 +10,7 @@ var _state: Dictionary={}
 var preview: Control
 var feedback: Label
 var _language: String=""
-const KINDS={"behavior":"Программа поведения","ship_flight":"Пролёт корабля","object":"Объект","resource":"Ресурс","panel":"Панель","warp_link":"Варп-маршрут","warp_transit":"Перенос корабля","surface":"Искусственная поверхность","resource_style":"Оформление ресурса","object_damage":"Разрушение объекта"}
+const KINDS={"body":"Искусственное тело","behavior":"Программа поведения","ship_flight":"Пролёт корабля","object":"Объект","resource":"Ресурс","panel":"Панель","warp_link":"Варп-маршрут","warp_transit":"Перенос корабля","surface":"Искусственная поверхность","resource_style":"Оформление ресурса","object_damage":"Разрушение объекта"}
 const STATES={"pending":"Ожидает подтверждения","applied":"Применено","rejected":"Отклонено","superseded":"Заменён новым проектом"}
 func setup(value: Node, id: String, is_project: bool, open_details: bool=true) -> void:
 	service=value; identity=id; project=is_project; expanded=open_details
@@ -47,7 +47,7 @@ func _build(data: Dictionary) -> void:
 	preview=null
 	if data.is_empty(): return
 	var d: Dictionary=data.definition
-	var model_definition: Dictionary=d if data.kind=="object" else service.records.get(str(d.get("object_id","")),{}).get("definition",{})
+	var model_definition: Dictionary=d if data.kind in ["object","body"] else service.records.get(str(d.get("object_id","")),{}).get("definition",{})
 	var status: String=str(data.get("status","applied"))
 	var row:=HBoxContainer.new(); add_child(row)
 	var icon:=TextureRect.new(); icon.name="CreationIcon"; icon.texture=Icons.make(d.get("icon","panel")); icon.custom_minimum_size=Vector2(22,22)
@@ -61,7 +61,7 @@ func _build(data: Dictionary) -> void:
 	if not expanded: return
 	if d.has("program"):
 		var panel:=preload("res://mods/pax_harness/src/creation/program_view.gd").new(); add_child(panel); panel.setup(service,str(d.id),d.program)
-	if data.kind in ["object","object_damage"] and not model_definition.is_empty() and service.api!=null and service.api.get("voxel")!=null:
+	if data.kind in ["object","object_damage","body"] and not model_definition.is_empty() and model_definition.has("model") and service.api!=null and service.api.get("voxel")!=null:
 		preview=Preview.new(); add_child(preview); preview.setup(service,model_definition)
 		add_child(label(L.text("Перетаскивание — вращение · колесо — масштаб")))
 		if model_definition.get("destructible",false):
@@ -70,7 +70,7 @@ func _build(data: Dictionary) -> void:
 			damage.disabled=status!="applied" or not service.records.has(model_definition.id) or not service.capabilities().destructible_objects
 			damage.toggled.connect(func(enabled: bool): preview.carving=enabled); add_child(damage)
 			preview.carved.connect(func(result: Dictionary): feedback.text=L.text("Изменение применено.") if result.ok else L.text("Не удалось применить проект: ")+str(result.get("code","")))
-		add_child(label(L.text("Высота над телом, км: ")+str(model_definition.altitude_km)+L.text(" · размер, км: ")+str(model_definition.size_km)))
+		if data.kind!="body": add_child(label(L.text("Высота над телом, км: ")+str(model_definition.altitude_km)+L.text(" · размер, км: ")+str(model_definition.size_km)))
 	if data.kind=="ship_flight":
 		add_child(label(str(d.ship_name)+" · "+L.text("Длительность, с: ")+str(d.duration_seconds)))
 		add_child(label(L.text("Маршрут задаёт движение; реакцию объекта выполняет его программа.")))
@@ -97,6 +97,9 @@ func _build(data: Dictionary) -> void:
 			if not result.ok: feedback.text=str(result.get("code","")))
 		replay.name="ReplayFlight_"+str(d.id); actions.add_child(replay)
 		actions.add_child(button(L.text("Перейти к объекту"),func(): service.focus_flight(str(d.id))))
+	elif data.kind=="body":
+		actions.add_child(button(L.text("Перейти к телу"),func(): service.focus_body(str(d.id))))
+		actions.add_child(button(L.text("Открыть карту поверхности"),func(): service.focus_body(str(d.id),true)))
 	elif data.kind=="surface":
 		actions.add_child(button(L.text("Открыть карту поверхности"),func(): service.view.window.hide(); service.game.scene_root().galaxy_view().open_body_map(Array(service.game.body_names()).find("harness_surface_"+str(d.id)))))
 	if project:

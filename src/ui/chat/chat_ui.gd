@@ -29,6 +29,7 @@ var _editing_title := false
 var _title_edit_id := ""
 var composer_input: PanelContainer
 var title_field: LineEdit
+var image_attachments: Node
 var feed: VBoxContainer
 var scroll: ScrollContainer
 var input: TextEdit
@@ -348,16 +349,16 @@ func _input_key(event: InputEvent) -> void:
 
 func _send(alternate: bool = false) -> void:
 	var text: String = input.text.strip_edges()
-	if text.is_empty(): return
+	if text.is_empty() and (image_attachments==null or image_attachments.images().is_empty()): return
 	var accepted := false
 	if owner_mod.chat_busy():
 		var mode: String = str(Preferences.value(owner_mod,"busy_send"))
 		if alternate: mode = "interrupt" if mode == "queue" else "queue"
 		if mode == "wait" or not owner_mod.has_method("chat_enqueue"): return
-		accepted = owner_mod.chat_enqueue(text,mentions.references())
+		accepted = owner_mod.chat_enqueue(text,mentions.references(),image_attachments.images())
 		if accepted and mode == "interrupt": owner_mod.chat_stop()
 	else:
-		accepted = owner_mod.chat_send_with_refs(text,mentions.references()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
+		accepted = owner_mod.chat_send_with_refs(text,mentions.references(),image_attachments.images()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
 	if accepted:
 		input.text = ""; mentions.sync(); _update_status()
 
@@ -635,7 +636,7 @@ func _process(delta: float) -> void:
 		_update_status()
 
 func _update_send_state() -> void:
-	send_button.disabled = (owner_mod.chat_busy() and (Preferences.value(owner_mod,"busy_send") == "wait" or not owner_mod.has_method("chat_enqueue"))) or store.current().is_empty() or input.text.strip_edges().is_empty()
+	send_button.disabled = (owner_mod.chat_busy() and (Preferences.value(owner_mod,"busy_send") == "wait" or not owner_mod.has_method("chat_enqueue"))) or store.current().is_empty() or (input.text.strip_edges().is_empty() and (image_attachments==null or image_attachments.images().is_empty()))
 
 func _update_status() -> void:
 	var busy: bool = owner_mod.chat_busy()

@@ -32,7 +32,7 @@ static func matches(query: String, names: Array, allow_suffix: bool = false) -> 
 
 static func execute(game: RefCounted, name: String, args: Dictionary, owner: Node) -> Dictionary:
 	if not available(game,name): return Data.failed("space.public_api_unavailable")
-	if name in ["space.surface","navigation.open_surface"]: return surface(game,args,name=="navigation.open_surface")
+	if name in ["space.surface","navigation.open_surface"]: return surface(game,args,name=="navigation.open_surface",owner)
 	if name == "space.rules": return rules(game,args,owner)
 	if name == "navigation.enter_system": return enter(game,args)
 	var query: String = str(args.get("query","")); var rows: Array = []
@@ -42,8 +42,9 @@ static func execute(game: RefCounted, name: String, args: Dictionary, owner: Nod
 			var body: Dictionary = game.body(body_name)
 			var aliases: Array=[body_name,str(body.get("harness_surface_parent",""))]
 			if body.get("harness_surface_names") is Dictionary: aliases.append_array(body.harness_surface_names.values())
+			if body.get("harness_body_names") is Dictionary: aliases.append_array(body.harness_body_names.values())
 			if not body.get("open",false) or not matches(query,aliases): continue
-			rows.append({"kind":"loaded_body","body":body_name,"body_kind":body.get("genus",""),"system":game.body_system(body_name),"discovered":true,"focus_tool":"navigation.focus","names":body.get("harness_surface_names",{}),"artificial_parent":body.get("harness_surface_parent","")})
+			rows.append({"kind":"loaded_body","body":body_name,"body_kind":body.get("genus",""),"system":game.body_system(body_name),"discovered":true,"focus_tool":"navigation.focus","names":body.get("harness_surface_names",body.get("harness_body_names",{})),"artificial_parent":body.get("harness_surface_parent",body.get("satellite","") if body.has("harness_body_id") else "")})
 	var galaxies: Array = Array(game.galaxies())
 	var galaxy_key: String = str(args.get("galaxy",galaxies[0] if not galaxies.is_empty() else ""))
 	if galaxy_key != "" and galaxy_key not in galaxies: return Data.failed("space.unknown_galaxy")
@@ -63,7 +64,7 @@ static func execute(game: RefCounted, name: String, args: Dictionary, owner: Nod
 	var selected: Array = rows.slice(offset,offset+limit)
 	return Data.success({"rows":selected,"total":rows.size(),"next_offset":offset+selected.size(),"has_more":offset+selected.size()<rows.size(),"galaxy":galaxy_key,"available_galaxies":galaxies,"available_star_classes":star_classes,"source":"Public loaded-body and deterministic galaxy catalogues of the current game, including installed mod content. No system generated or time advanced."})
 
-static func surface(game: RefCounted, args: Dictionary, open_map: bool) -> Dictionary:
+static func surface(game: RefCounted, args: Dictionary, open_map: bool,owner: Node=null) -> Dictionary:
 	var name: String=str(args.body)
 	if name not in game.body_names() or not game.body(name).get("open",false): return Data.failed("tools.unknown_or_hidden_body")
 	var original: String=name
@@ -78,7 +79,8 @@ static func surface(game: RefCounted, args: Dictionary, open_map: bool) -> Dicti
 	if open_map:
 		var root: Node=game.scene_root()
 		if not root.has_method("galaxy_view"): return Data.failed("space.map_navigation_unavailable")
-		root.galaxy_view().open_body_map(Array(game.body_names()).find(name))
+		if game.body(name).has("harness_body_id") and is_instance_valid(owner) and owner.get("_creations")!=null: owner._creations.focus_body(str(game.body(name).harness_body_id),true)
+		else: root.galaxy_view().open_body_map(Array(game.body_names()).find(name))
 	var loaded: bool=name==game.home_body() or name in Sources.native_loaded_maps(game)
 	return Data.success({"body":name,"requested_body":original,"original_kind":game.body(original).get("genus",""),"kind":kind,"solid_surface":solid,"artificial_surfaces":shells,"artificial_parent":game.body(name).get("harness_surface_parent",""),"map_loaded":loaded,"province_count":game.province_count(name) if loaded and solid else null,"map_open_requested":open_map,"surface_tool":"charts.map","load_chart_tools":{"groups":["maps"]},"map_arguments":{"body":name},"water_supported":solid and loaded,"note":"Natural solid bodies and approved artificial rock shells have native province maps. Original stars/gas giants retain their kinds. Opening a parent with an approved shell opens that shell. No colonization or population is granted. Use the returned body ID in charts.map; include_water=true supports water coverage after map_loaded=true."})
 

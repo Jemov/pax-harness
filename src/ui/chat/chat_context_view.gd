@@ -129,7 +129,7 @@ func _panel(model: PopupMenu, action: Callable, child: bool) -> PanelContainer:
 			root_rows.append(button)
 		else: child_rows.append(button)
 		height += 34
-	panel.size = Vector2(268 if not child else 248,mini(height,int(size.y)-12))
+	panel.size = Vector2(minf(float(model.get_meta("preferred_width",268 if not child else 248)),size.x-12),mini(height,int(size.y)-12))
 	return panel
 
 func _open_child(index: int, focus: bool) -> void:

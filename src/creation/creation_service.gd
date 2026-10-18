@@ -3,6 +3,7 @@ const Surface = preload("res://mods/pax_harness/src/creation/artificial_surface.
 const Policy = preload("res://mods/pax_harness/src/creation/creation_policy.gd")
 const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
+const VoxelObject = preload("res://mods/pax_harness/src/creation/voxel_object.gd")
 var owner_mod: Node
 var api: Node
 var game: RefCounted
@@ -40,26 +41,34 @@ func world_ready(current: RefCounted) -> void:
 		if record.kind=="surface": Surface.create(game,record.definition)
 	refresh_names()
 	for record: Dictionary in records.values():
-		if record.kind=="object": _spawn(record.definition)
+		if record.kind=="object": _spawn(record.definition,record.get("damage",[]),true)
 	if not records.is_empty() or not proposals.is_empty(): _ensure_view()
 func current() -> bool:
 	return is_instance_valid(game) and is_instance_valid(owner_mod) and owner_mod._game_available(game) and game.scene_root().get_instance_id()==_world_id
 func _title(d: Dictionary) -> String:
 	var text: Variant=d.get("name",{})
 	return str(text.get(L.language(),text.get("en",d.get("id","")))) if text is Dictionary else str(text)
+func body_title(id: String) -> String:
+	var language: Variant=game.scene_root().get("lang") if is_instance_valid(game) else null
+	return str(language.call("body",id)) if language is Object and language.has_method("body") else id
 func summaries() -> Array:
 	var result: Array=[]
 	for id: String in records:
 		var r: Dictionary=records[id]; var d: Dictionary=r.definition
 		result.append({"id":id,"kind":r.kind,"name":d.get("name",{}),"body":d.get("body",""),"behavior":d.get("behavior",""),"from_id":d.get("from_id",""),"to_id":d.get("to_id",""),"days":d.get("days"),"resource_key":r.get("resource_key",""),"surface_body":Surface.body_id(id) if r.kind=="surface" else ""})
+		if r.kind=="object":
+			result[-1].merge({"destructible":d.get("destructible",false),"voxel_grid_size":d.model.size.duplicate(),"damage_count":r.get("damage",[]).size(),"altitude_km":d.altitude_km,"size_km":d.size_km})
 	return result
 func capabilities() -> Dictionary:
 	return {"voxel_models":api!=null and api.get("voxel")!=null,"terrain_component_required_for_models":false,
+		"destructible_objects":VoxelObject.supported(api),"destructible_component":"voxel",
+		"missing_component_message":"Ordinary models work without Voxel Tools. Destructible objects need the optional voxel component; if missing, report that destruction is unavailable and do not claim to create a destructible object.",
 		"resource_classes":Array(game.econ.classes().keys()),"kinds":Policy.KINDS,"player_review_required":true,"apply_tool_exists":false,"parallel_universes_supported":false,
 		"artificial_surfaces":Surface.available(game),"formats":{
 			"surface":"{id,name:{ru,en},body:discovered star or gas giant,altitude_km:100..1e8,provinces_count:integer 4..40,climate:{temperature,water,biomass,radiation,atmosphere,urban,magnetic}}. All climate scales 0..1; urban must be zero. Creates a native rock shell at the parent centre, radius parent radius+altitude, with real native provinces/map. Original body is preserved. No population, colony, resources or completed research are granted. This is explicitly approved scenario authoring, not a free normal terraforming order. Saved per campaign; stable body ID harness_surface_<id>. Requires player Apply. Call space.surface on parent to discover the shell.",
 			"common":"id: lowercase a-z0-9_ starting with a letter, up to 48; name:{ru,en}; icon:gate/station/crystal/dust/panel or {rows:[4..16 equal strings of hex palette indices, 0 transparent],palette:[#RRGGBB]}",
-			"object":"{id,name,body,icon,longitude:-180..180,latitude:-90..90,altitude_km:0..1e9,size_km:0.001..1e7,behavior:decoration|warp_gate,model:{size:[integer x,y,z up to 64],palette:[#RRGGBB],shapes:[box(from,to),sphere(center,radius),cylinder(center,radius,height),torus(center,radius,tube,axis),line(from,to,width); each has color index, 0 carves],voxels:[[x,y,z,color]]}}. Max 128 shapes/4096 explicit voxels. Existing discovered body only. Artwork is scenario content, not proof of researched/paid construction.",
+			"object":"{id,name,body,icon,longitude:-180..180,latitude:-90..90,altitude_km:0..1e9,size_km:0.001..1e7,behavior:decoration|warp_gate,destructible?:boolean (requires voxel component),model:{size:[integer x,y,z up to 64],palette:[#RRGGBB],shapes:[box(from,to),sphere(center,radius),cylinder(center,radius,height),torus(center,radius,tube,axis),line(from,to,width); each has color index STARTING AT 1, 0 carves. Do NOT insert a black/transparent placeholder in palette. For space gates use a floating ring without a pedestal unless explicitly requested; altitude_km must place it above the body],voxels:[[x,y,z,color]]}}. Max 128 shapes/4096 explicit voxels. Existing discovered body only. Artwork is scenario content, not proof of researched/paid construction.",
+			"object_damage":"{object_id:approved destructible object ID,center:[x,y,z] within its voxel grid,radius:0.25..16}. Player-reviewed removal of a sphere of voxels. Damage persists with the campaign; does not advance time. No terrain changes.",
 			"resource_style":"{resource_id:approved resource ID,text_color:#RRGGBB or null to restore the native default}. Only on an explicit styling request; player Apply required. Changes text color only, never font size or layout. Ordinary resources should retain the native default.",
 			"resource":"{id,name,body,goods_class:one returned class,unit:string,price:number>=0,icon,text_color?:#RRGGBB}. Omit text_color unless the player explicitly requests an accent. Uses native economy.create_goods; initial stock/demand/production are zero. No stock grants or automatic industry.",
 			"panel":"{id,name,target_id:existing object ID,rows:[{label:{ru,en},value:string} OR {label:{ru,en},resource_id:created resource ID,body:colony}]}. Native read-only UI; no code or arbitrary actions. Separate approval required.",
@@ -75,7 +84,7 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 	if scope.get("analysis_child",false): return {"ok":false,"code":"creation.not_available_in_analysis"}
 	var request: String=_player_request(scope)
 	if request=="": return {"ok":false,"code":"creation.direct_player_request_required"}
-	for forbidden: String in ["только чтение","ничего не создавай","не добавляй","read-only","read only","do not create","don't create"]:
+	for forbidden: String in ["только чтение","ничего не создавай","ничего не добавляй","read-only","read only","do not create","don't create"]:
 		if request.to_lower().contains(forbidden): return {"ok":false,"code":"creation.player_requested_read_only"}
 	return propose(str(args.get("kind","")),args.get("definition",{}),request)
 func _player_request(scope: Dictionary) -> String:
@@ -96,6 +105,9 @@ func propose(kind: String, definition: Dictionary, request: String) -> Dictionar
 	var fingerprint: String=JSON.stringify({"kind":kind,"definition":definition}).sha256_text()
 	for p: Dictionary in proposals:
 		if p.fingerprint==fingerprint and p.status in ["pending","applied"]: return _proposal_receipt(p)
+	if definition.has("id"):
+		for prior: Dictionary in proposals:
+			if prior.status=="pending" and prior.kind==kind and prior.definition.get("id")==definition.id: prior.status="superseded"
 	if proposals.filter(func(p: Dictionary): return p.status=="pending").size()>=20: return {"ok":false,"code":"creation.pending_limit"}
 	sequence+=1
 	var p: Dictionary={"id":"project:"+str(sequence),"kind":kind,"definition":definition.duplicate(true),"request":request.left(4000),"status":"pending","fingerprint":fingerprint}
@@ -108,7 +120,13 @@ func propose(kind: String, definition: Dictionary, request: String) -> Dictionar
 func _proposal_receipt(p: Dictionary) -> Dictionary:
 	return {"ok":true,"result":{"proposal_id":p.id,"status":p.status,"kind":p.kind,"name":p.definition.get("name",{}),"world_changed":p.status=="applied","review_panel":"harness.creations","instruction":"Pending means NOT created. Ask the player to review and click Apply. There is no model-callable approval or apply tool."}}
 func _references(kind: String, d: Dictionary) -> Dictionary:
-	if kind not in ["warp_transit","resource_style"] and records.has(d.id): return {"ok":false,"code":"creation.id_exists"}
+	if kind not in ["warp_transit","resource_style","object_damage"] and records.has(d.id): return {"ok":false,"code":"creation.id_exists"}
+	if kind=="object_damage":
+		if not records.has(d.object_id) or records[d.object_id].kind!="object" or not records[d.object_id].definition.get("destructible",false): return {"ok":false,"code":"creation.object_not_destructible"}
+		for axis: int in 3:
+			if float(d.center[axis])>=float(records[d.object_id].definition.model.size[axis]): return {"ok":false,"code":"creation.damage_outside_object"}
+		if not VoxelObject.supported(api): return {"ok":false,"code":"creation.voxel_component_required"}
+		if records[d.object_id].get("damage",[]).size()>=128: return {"ok":false,"code":"creation.damage_limit"}
 	if records.size()>=128: return {"ok":false,"code":"creation.content_limit"}
 	if kind in ["object","resource","surface"]:
 		if d.body not in game.body_names() or not game.body(d.body).get("open",false): return {"ok":false,"code":"tools.unknown_or_hidden_body"}
@@ -119,6 +137,7 @@ func _references(kind: String, d: Dictionary) -> Dictionary:
 		if records.values().any(func(r: Dictionary): return r.kind=="surface" and r.definition.body==d.body): return {"ok":false,"code":"creation.surface_already_exists"}
 		if records.values().filter(func(r: Dictionary): return r.kind=="surface").size()>=8: return {"ok":false,"code":"creation.surface_limit"}
 	if kind=="object":
+		if d.get("destructible",false) and not VoxelObject.supported(api): return {"ok":false,"code":"creation.voxel_component_required"}
 		if records.values().filter(func(r: Dictionary): return r.kind=="object").size()>=32: return {"ok":false,"code":"creation.object_limit"}
 		if not is_instance_valid(game.body_node(d.body)): return {"ok":false,"code":"creation.body_scene_unavailable"}
 	if kind=="resource":
@@ -157,6 +176,7 @@ func apply_from_player(id: String) -> Dictionary:
 		if not valid.ok: p["error"]=valid.code; changed.emit(); return valid
 		var d: Dictionary=p.definition; var result: Dictionary={"ok":true}
 		match p.kind:
+			"object_damage": result=damage_from_player(d.object_id,d.center,float(d.radius),false)
 			"surface": result=Surface.create(game,d)
 			"resource_style": records[d.resource_id].definition["text_color"]=d.text_color
 			"object":
@@ -177,7 +197,7 @@ func apply_from_player(id: String) -> Dictionary:
 					if readback.get("where_to")!=ship.where_to or readback.get("until_day")!=ship.until_day: result={"ok":false,"code":"creation.native_ship_write_unavailable"}
 					else: result["ship_after"]=readback.duplicate(true)
 		if not result.ok: p["error"]=result.code; changed.emit(); return result
-		if p.kind not in ["warp_transit","resource_style"]:
+		if p.kind not in ["warp_transit","resource_style","object_damage"]:
 			var record: Dictionary={"kind":p.kind,"definition":d.duplicate(true)}
 			if p.kind=="resource": record["resource_key"]="harness_"+str(d.id)
 			records[d.id]=record
@@ -197,13 +217,14 @@ func _ensure_view() -> void:
 func open_review() -> bool:
 	if not current(): return false
 	_ensure_view(); view.open(); return true
-func _spawn(d: Dictionary) -> bool:
+func _spawn(d: Dictionary, cuts: Array=[], restoring: bool=false) -> bool:
 	if api==null or api.get("voxel")==null: return false
 	var parent: Node3D=game.body_node(d.body)
 	if not is_instance_valid(parent): return false
-	var mesh: Variant=api.voxel.model(d.model)
+	var mesh: Variant=VoxelObject.create(api,d,cuts)
+	if mesh==null and restoring: mesh=VoxelObject.static_snapshot(api,d,cuts)
 	if not mesh is MeshInstance3D: return false
-	if mesh.mesh==null or mesh.mesh.get_surface_count()==0: mesh.free(); return false
+	if mesh.mesh==null or (mesh.mesh.get_surface_count()==0 and cuts.is_empty()): mesh.free(); return false
 	var radius: float=1.0
 	if parent is MeshInstance3D and parent.mesh!=null: radius=parent.get_aabb().size[parent.get_aabb().size.max_axis_index()]*0.5
 	var r_km: float=maxf(0.001,float(game.body(d.body).get("r_km",1)))
@@ -213,8 +234,31 @@ func _spawn(d: Dictionary) -> bool:
 	var grid_size: float=maxf(d.model.size[0],maxf(d.model.size[1],d.model.size[2]))
 	var scale_: float=radius*float(d.size_km)/r_km/grid_size
 	mesh.basis=Basis.looking_at(-direction,Vector3.RIGHT if absf(direction.dot(Vector3.UP))>0.99 else Vector3.UP).scaled(Vector3.ONE*scale_)
-	mesh.position=direction*radius*(1.0+float(d.altitude_km)/r_km)-mesh.basis*mesh.get_aabb().get_center()
+	var center: Vector3=mesh.get_aabb().get_center()
+	if not cuts.is_empty():
+		var intact: MeshInstance3D=api.voxel.model(d.model); center=intact.get_aabb().get_center(); intact.free()
+	mesh.position=direction*radius*(1.0+float(d.altitude_km)/r_km)-mesh.basis*center
 	meshes.append(mesh); return true
+func damage_from_player(id: String, center: Array, radius: float, notify: bool=true) -> Dictionary:
+	var checked: Dictionary=Policy.validate("object_damage",{"object_id":id,"center":center,"radius":radius})
+	if not checked.ok or not current(): return {"ok":false,"code":"creation.invalid_damage"}
+	var d: Dictionary={"object_id":id,"center":center,"radius":radius}
+	checked=_references("object_damage",d)
+	if not checked.ok: return checked
+	var record: Dictionary=records[id]
+	var cuts: Array=record.get("damage",[]).duplicate(true); cuts.append({"center":center.duplicate(),"radius":radius})
+	var replacement: MeshInstance3D=VoxelObject.create(api,record.definition,cuts)
+	if replacement==null: return {"ok":false,"code":"creation.voxel_component_required"}
+	var target: MeshInstance3D=game.body_node(record.definition.body).get_node_or_null("HarnessObject_"+id)
+	if target==null: replacement.free(); return {"ok":false,"code":"creation.object_unavailable"}
+	var removed: int=VoxelObject.occupied(target)-VoxelObject.occupied(replacement)
+	if removed<=0: replacement.free(); return {"ok":false,"code":"creation.no_voxels_at_target"}
+	target.mesh=replacement.mesh
+	target.set_meta("harness_voxel_buffer",replacement.get_meta("harness_voxel_buffer"))
+	target.set_meta("harness_voxel_channel",replacement.get_meta("harness_voxel_channel")); replacement.free()
+	record["damage"]=cuts
+	if notify: changed.emit()
+	return {"ok":true,"result":{"object_id":id,"cuts":cuts.size(),"removed_voxels":removed,"world_changed":true}}
 func _resource_rows(panel: Variant, body: Variant) -> void:
 	if current() and panel is Object: preload("res://mods/pax_harness/src/creation/resource_presentation.gd").update(self,panel,str(body))
 

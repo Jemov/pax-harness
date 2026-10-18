@@ -735,4 +735,5 @@ func _language_changed() -> void:
 	if is_instance_valid(chat_ui): chat_ui.apply_preferences()
 	if is_instance_valid(_creations):
 		_creations.refresh_names()
+		_creations.changed.emit()
 		if is_instance_valid(_creations.view): _creations.view.refresh()

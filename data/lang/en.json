@@ -699,5 +699,20 @@
   "pax_harness_c1306eb70e96": "Resource appearance",
   "pax_harness_ef1f6bb0c27d": " · text color: ",
   "pax_harness_f7f01cf016b5": "Native default",
-  "pax_harness_13fec006b6f0": "The player disabled this tool in Harness settings."
+  "pax_harness_13fec006b6f0": "The player disabled this tool in Harness settings.",
+  "pax_harness_24ff391e2979": "Object destruction",
+  "pax_harness_01ff013db5ab": "Awaiting confirmation",
+  "pax_harness_a358e81fa2f1": "Applied",
+  "pax_harness_a997f5000828": "Rejected",
+  "pax_harness_b0c590deffd0": "Superseded by a new project",
+  "pax_harness_cd7cd29e4f39": "Drag to rotate · scroll to zoom",
+  "pax_harness_7bbecb4e7810": "Destruction: click the model",
+  "pax_harness_aa55c7d2f3ad": "Altitude above body, km: ",
+  "pax_harness_9d99b9bf8ca8": "Territories: ",
+  "pax_harness_07d4670d0601": "Project not applied: ",
+  "pax_harness_ccd6722af953": "Search by name, body or type",
+  "pax_harness_59d1a4dd105b": "Projects and objects",
+  "pax_harness_6928d5a72b51": "Awaiting approval",
+  "pax_harness_1417b7792d57": "History",
+  "pax_harness_ff84318ec244": "Voxel Tools is not installed. Destruction is unavailable; ordinary models work without it."
 }

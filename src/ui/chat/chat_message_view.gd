@@ -4,6 +4,8 @@ const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Content = preload("res://mods/pax_harness/src/ui/markdown/chat_markdown_view.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Metrics = preload("res://mods/pax_harness/src/chat/chat_metrics.gd")
+const Creations=preload("res://mods/pax_harness/src/creation/chat_creation_view.gd")
+var _creations: VBoxContainer
 var _header: VBoxContainer
 var _events: VBoxContainer
 var _content: VBoxContainer
@@ -30,6 +32,8 @@ func update_message(ui: Node, message: Dictionary) -> void:
 		_header = VBoxContainer.new(); column.add_child(_header)
 		_events = VBoxContainer.new(); column.add_child(_events)
 		_content = Content.new(); column.add_child(_content)
+		_creations=Creations.new(); column.add_child(_creations)
+		_creations.visible=false
 		_header.add_theme_constant_override("separation",9)
 		_events.add_theme_constant_override("separation",9)
 		_content.add_theme_constant_override("separation",9)
@@ -54,6 +58,7 @@ func update_message(ui: Node, message: Dictionary) -> void:
 			_header.add_child(cancel)
 		elif role == "user" and message.get("status") == "cancelled": _header.add_child(ui._label(L.text("Отправка отменена"),12,ui.QUIET))
 
+	if role=="assistant": _creations.update_message(ui,message)
 	var events: Array = [message.get("events",[]),message.get("status"),message.has("stream"),message.get("elapsed_ms",0),ui._expanded]
 	if _event_state != events:
 		ui._clear(_events)

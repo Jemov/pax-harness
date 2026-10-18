@@ -10,7 +10,7 @@ The assistant initially receives a short group catalogue. Full chart, map, inter
 
 ## Creating new content
 
-On an explicit request, the assistant can prepare a voxel object and icon, a new resource, an object panel, a warp route or an artificial surface for a star/gas giant. Open projects using **Review project** in chat or **Settings → Harness → Open new entity projects**. Only the player’s **Apply** button adds the reviewed change to the current campaign.
+On an explicit request, the assistant can prepare a voxel object and icon, a new resource, an object panel, a warp route or an artificial surface for a star/gas giant. Models appear directly in chat messages with rotation, zoom and Apply/Reject buttons. Open the searchable collection through **Settings → Harness → Open new entity projects**. Only the player’s **Apply** button adds the reviewed change to the current campaign.
 
 An artificial surface is a separate solid shell with its own native map and 4–40 territories. The original star or gas giant is preserved. After approval, ask to open that body's surface map. Territories and objects are saved with the campaign. This is scenario authoring: it grants no population, colony, stock or research. Use normal game orders for resource-funded terraforming.
 
@@ -36,7 +36,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.14.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.15.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 
@@ -93,3 +93,10 @@ To let a vision-capable model inspect the game, enable its profile and **Image i
 The interface is available in Russian and English and follows the game's language, including open mod windows. Other game languages use English. Player messages, model answers, custom names and entered data remain unchanged. Internal API identifiers remain stable.
 
 Runtime entry: `src/main.gd`. Code is organized under `src/`, translations under `data/lang/`, and project screenshots under `media/`. Release screenshots are separate assets; the installation ZIP does not need the promotional gallery.
+
+
+### Inline 3D objects
+
+Model projects appear directly in chat messages. Drag to rotate, scroll to zoom, and use Apply or Reject in the card. The collection in Settings → Harness has search, filters and ten rows per page, with collapsed details.
+
+Ordinary voxel models need no optional component. Detached destructible objects require **Voxel Tools**. Enable Destruction in an applied object card and click the model to remove a region of its voxel volume. Damage persists with the campaign. The agent can propose a separate damage operation when explicitly requested. This does not add automatic combat, debris or portal animation.

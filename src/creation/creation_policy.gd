@@ -1,7 +1,7 @@
 extends RefCounted
 ## Declarative content only. No scripts, URLs, paths or model-controlled callbacks.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
-const KINDS := ["object","resource","panel","warp_link","warp_transit","surface","resource_style"]
+const KINDS := ["object","resource","panel","warp_link","warp_transit","surface","resource_style","object_damage"]
 const SHAPES := ["box","sphere","cylinder","torus","line"]
 static func definitions() -> Array:
 	var result: Array = []
@@ -64,13 +64,16 @@ static func validate(kind: String, definition: Variant) -> Dictionary:
 	var ok := false
 	match kind:
 		"object":
-			ok = keys(d,["id","name","body","model","icon","longitude","latitude","altitude_km","size_km","behavior"],["id","name","body","model","icon","longitude","latitude","altitude_km","size_km"])
+			ok = keys(d,["id","name","body","model","icon","longitude","latitude","altitude_km","size_km","behavior","destructible"],["id","name","body","model","icon","longitude","latitude","altitude_km","size_km"])
+			ok = ok and (not d.has("destructible") or d.destructible is bool)
 			ok = ok and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and d.body.length()<=160 and model(d.get("model")) and icon(d.get("icon")) and number(d.get("longitude"),-180,180) and number(d.get("latitude"),-90,90) and number(d.get("altitude_km"),0,1e9) and number(d.get("size_km"),0.001,1e7) and d.get("behavior","decoration") in ["decoration","warp_gate"]
 		"resource":
 			ok = keys(d,["id","name","body","goods_class","unit","price","icon","text_color"],["id","name","body","goods_class","unit","price","icon"])
 			ok = ok and identifier(d.get("id")) and label(d.get("name")) and d.get("body") is String and d.get("goods_class") is String and d.get("unit") is String and d.unit.length()<=40 and number(d.get("price"),0,1e12) and icon(d.get("icon")) and (not d.has("text_color") or color(d.text_color))
 		"resource_style":
 			ok = keys(d,["resource_id","text_color"],["resource_id","text_color"]) and identifier(d.get("resource_id")) and (d.text_color==null or color(d.text_color))
+		"object_damage":
+			ok = keys(d,["object_id","center","radius"],["object_id","center","radius"]) and identifier(d.get("object_id")) and vector(d.get("center"),3,0,64) and number(d.get("radius"),0.25,16)
 		"panel":
 			ok = keys(d,["id","name","target_id","rows"],["id","name","target_id","rows"]) and identifier(d.get("id")) and label(d.get("name")) and identifier(d.get("target_id")) and d.get("rows") is Array and d.rows.size()>0 and d.rows.size()<=20
 			if ok:

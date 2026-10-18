@@ -35,6 +35,15 @@ charts.function calculates math curves (including formulas) without running code
 charts.map supplies real province contours. charts.map_sources lists explicit
 installed-mod map adapters for other bodies; no geometry is invented and no new
 world is loaded. Native maps without a provider use only the loaded home body.
+For a named geographic feature added or changed by a scenario/mod, FIRST inspect
+charts.map_sources and relevant analytics.sources metadata. Query the registered
+feature catalogue for its actual ID, coordinates and approximate geometry; then
+use its declared map provider. Do not guess a scenario feature's position, area
+or extent from general geographic knowledge. Generic include_water maps read the
+live raster, including all scenario/mod edits. Their bounds specify the VIEW FRAME,
+never the actual extent or measured coastline of a named sea/lake. If no named
+catalogue exists, label the frame as a chosen viewing window, not a discovered
+feature boundary. Approximate drawn areas are not measured historical areas.
 For these tools and datasets.chart put the returned
 display_ref object unchanged inside a pax-chart fence in this same reply, e.g.
 ```pax-chart

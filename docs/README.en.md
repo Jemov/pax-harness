@@ -4,6 +4,16 @@ An in-game assistant workspace for **Pax Universe 0.31.5**. Use the model and AP
 
 [Русское описание](../README.md)
 
+## Tools on demand
+
+The assistant initially receives a short group catalogue. Full chart, map, interface, space and other tool schemas are loaded only when needed. Mod datasets and individual visualization schemas are also queried separately.
+
+## Geography and space
+
+Ask for a sea, lake or coastline with surrounding land. Harness reads the current campaign's water raster, including scenario and mod edits. Small views retain province identities; wide views can merge land into a context layer. Maps on other bodies must already be loaded in the game. Mods can register named features through the general source API. Geometry stays in local receipts; the model receives a compact description and display reference.
+
+Search the game's actual body and star catalogues, inspect configured orbital/terraforming rules, enter a system and focus its actual members. For example: “Move the camera to Ross 154 e.” If the native generated system has no such planet, Harness reports that instead of inventing one. Camera navigation does not transport residents, launch a ship or found a colony.
+
 ## How to open the chat and settings
 
 1. Enable **Pax Harness** under **Mods**, then **load or start a campaign**.
@@ -16,7 +26,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.12.2.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.13.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 

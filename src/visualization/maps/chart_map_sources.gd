@@ -3,7 +3,11 @@ extends RefCounted
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 var sources: Dictionary = {}
+func unregister_source(id: String, reader: Callable) -> bool:
+	if not sources.has(id) or sources[id].reader != reader: return false
+	sources.erase(id); return true
 func register_source(id: String, title: String, body: String, reader: Callable) -> bool:
+	if sources.has(id) and not sources[id].reader.is_valid(): sources.erase(id)
 	if sources.size() >= 32 or sources.has(id) or RegEx.create_from_string("^[a-z0-9_]+\\.[a-z0-9_.-]{1,70}$").search(id) == null: return false
 	if title.is_empty() or title.length() > 160 or body.is_empty() or body.length() > 160 or not reader.is_valid(): return false
 	sources[id] = {"id":id,"title":title,"body":body,"reader":reader}
@@ -32,7 +36,7 @@ static func _plain_callback(value: Variant, budget: Dictionary = {}, depth: int 
 	# GDScript dictionary.dot = value creates StringName keys. They are ordinary
 	# JSON object names, not objects or executable values. Canonicalize only after
 	# validating the complete bounded callback output.
-	if budget.is_empty(): budget = {"nodes":8192}
+	if budget.is_empty(): budget = {"nodes":65536}
 	budget.nodes -= 1
 	if depth > 24 or budget.nodes < 0: return false
 	if value is Dictionary:

@@ -237,7 +237,12 @@ func record(target: Dictionary, kind: String, payload: Dictionary) -> void:
 				event.status = "complete"
 				event.elapsed_ms = now-int(event.started_ms)
 	match kind:
-		"step.start": events.append({"kind":"step","round":payload.get("round",1),"status":"running","started_ms":now,"elapsed_ms":0})
+		"step.start":
+			var step: Dictionary = {"kind":"step","round":payload.get("round",1),"status":"running","started_ms":now,"elapsed_ms":0}
+			# Schema exposure metadata only: no prompts, credentials or world payloads.
+			for key: String in ["advertised_tool_names","tool_schema_chars","loaded_tool_groups"]:
+				if payload.has(key): step[key] = payload[key].duplicate() if payload[key] is Array else payload[key]
+			events.append(step)
 		"assistant.note":
 			if not str(payload.get("text","")).strip_edges().is_empty(): events.append({"kind":"note","text":str(payload.text)})
 		"format.error":

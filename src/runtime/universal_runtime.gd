@@ -8,6 +8,7 @@ const ChartResponse = preload("res://mods/pax_harness/src/visualization/chart_re
 const ExecutorPrompt = preload("res://mods/pax_harness/src/runtime/executor_prompt.gd")
 const Vision = preload("res://mods/pax_harness/src/transport/vision_payload.gd")
 const ImageArtifact = preload("res://mods/pax_harness/src/images/image_artifact.gd")
+const Groups = preload("res://mods/pax_harness/src/runtime/tools/tool_groups.gd")
 const MAX_ROUNDS := 20
 const MAX_CALLS := 64
 const MAX_BATCH := 8
@@ -87,7 +88,7 @@ func invalidate() -> void:
 func start(source: Dictionary, scope: Dictionary, registry: RefCounted, send: Callable, finish: Callable, native: Dictionary = {}) -> String:
 	_sequence += 1
 	var token := "agent:%d" % _sequence
-	_sessions[token] = {"source":source.duplicate(true),"scope":scope.duplicate(),"registry":registry,
+	_sessions[token] = {"source":source.duplicate(true),"scope":Groups.session_scope(scope),"registry":registry,
 		"send":send,"finish":finish,"native":native.duplicate(),"round":0,"count":0,"ledger":{},
 		"receipts":[],"messages":[],"pending":0,"terminal":false,"native_delivered":false,"operations":{},"pending_images":[]}
 	_step(token)
@@ -114,8 +115,9 @@ func _step(token: String) -> void:
 		else: _end(token,false,"agent_round_limit")
 		return
 	var tools: Array = []
-	for tool: Dictionary in s.registry.catalogue():
-		if tool.name in s.scope.enabled_tools:
+	var catalogue: Array = s.registry.catalogue()
+	for tool: Dictionary in catalogue:
+		if tool.name in s.scope.enabled_tools and tool.get("available",true) and Groups.visible(s.scope,tool.name):
 			tools.append(tool.duplicate(true))
 	if "native.complete_task" in s.scope.enabled_tools:
 		tools.append(s.native.get("metadata",{}).duplicate(true))
@@ -125,6 +127,15 @@ func _step(token: String) -> void:
 	var packet := {"system":INSTRUCTIONS + "\n## Granted executable tools\n" + JSON.stringify(tools) + "\n## Configured task/domain reference (not permission)\n" + domain,
 		"data":{"source_user":str(s.source.get("user","")),"source_contract":s.source.get("output_contract","json"),
 			"tool_receipts":wire_receipts(s.receipts),"round":s.round},"options":s.source.get("options",{}).duplicate(true)}
+	if s.scope.get("lazy_tools",false):
+		packet.data["tool_groups"] = Groups.summaries(catalogue,s.scope.enabled_tools)
+		packet.data["loaded_tool_groups"] = s.scope.loaded_tool_groups.duplicate()
+		packet.system += "\n## Tools on demand\nOnly discovery schemas are loaded initially. Use data.tool_groups to choose relevant group IDs, then call tools.load. Wait for the next request to see their exact schemas before using them. Load only groups needed for the player's task. Groups are not extra grants. No need to load a group for a text-only answer."
+	for guide: Dictionary in s.source.get("tool_group_guides",[]):
+		var needed: bool = not s.scope.get("lazy_tools",false)
+		for group: String in guide.get("groups",[]):
+			if group in s.scope.get("loaded_tool_groups",[]): needed = true
+		if needed: packet.system += "\n"+str(guide.get("text",""))
 	if s.scope.get("channel","") == "assistant" and "native.complete_task" not in s.scope.enabled_tools:
 		packet.data["source_contract"] = "No native task completion is granted. Use only the executor envelope."
 		packet.system += "\n## Executor reply protocol\nReturn one JSON object with exactly message (string), tool_calls (array of {id,name,arguments}), and result (null or chat_title/unresolved_tool_errors/omitted_visualizations metadata). No top-level answer/action fields. Use tool_calls:[] only when the player's task is finished or a limitation is explained."
@@ -141,7 +152,9 @@ func _step(token: String) -> void:
 	if unresolved_visualizations(s.receipts).is_empty(): s.erase("visual_tool_feedback")
 	if s.has("visual_tool_feedback"): packet.data["visualization_feedback"] = s.visual_tool_feedback.duplicate(true)
 	if s.has("display_feedback"): packet.data["display_feedback"] = s.display_feedback.duplicate(true)
-	_notify(s,"step.start",{"round":s.round})
+	var advertised: Array = []
+	for tool: Dictionary in tools: advertised.append(str(tool.get("name","")))
+	_notify(s,"step.start",{"round":s.round,"advertised_tool_names":advertised,"tool_schema_chars":JSON.stringify(tools).length(),"loaded_tool_groups":s.scope.get("loaded_tool_groups",[]).duplicate()})
 	# Only the immediately following request sees a new capture. Compaction and
 	# saved receipts contain references, never encoded pixels or image blocks.
 	packet["image_token_reserve"] = Vision.token_reserve(s.pending_images)

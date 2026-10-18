@@ -447,6 +447,8 @@ func _map() -> void:
 		if region.value != null: low = minf(low,region.value); high = maxf(high,region.value)
 	if low == INF: low = 0; high = 1
 	var footer_text: String = (L.text("Схематичная картограмма · ") if spec.type == "cartogram" else "")+Chart.number(low)+" … "+_amount(high)+L.text(" · серый — нет данных")
+	var water_map: bool = spec.regions.any(func(row: Dictionary): return row.get("kind","") == "water")
+	if water_map: footer_text = L.text("Голубой — вода · серый — суша")
 	var footer: float = _height(footer_text,size.x-28)+24
 	var area := Rect2(14,14,size.x-28,size.y-14-footer)
 	if spec.type == "choropleth":
@@ -457,11 +459,15 @@ func _map() -> void:
 			for raw: Array in region.polygons:
 				var polygon := PackedVector2Array()
 				for point: Array in raw: polygon.append(area.position+Vector2(point[0],point[1])*area.size)
-				_fill(polygon,Color("#3b404a") if region.value == null else _color(region.value,low,high))
-				draw_polyline(polygon+PackedVector2Array([polygon[0]]),Color("#171c24"),1,true)
+				var kind: String = str(region.get("kind","province"))
+				var fill: Color = Color("#3b404a") if region.value == null else _color(region.value,low,high)
+				if kind == "water": fill = Color("#477fa8")
+				elif kind == "land": fill = Color("#464e5c").lightened(float(int(region.id)%5)*0.035 if str(region.id).is_valid_int() else 0.0)
+				_fill(polygon,fill)
+				if kind == "province": draw_polyline(polygon+PackedVector2Array([polygon[0]]),Color("#171c24"),1,true)
 				var bounds := Rect2(polygon[0],Vector2.ZERO)
 				for point: Vector2 in polygon: bounds = bounds.expand(point)
-				_hit(bounds,str(region.label)+": "+(L.text("нет данных") if region.value == null else _amount(region.value)),polygon)
+				_hit(bounds,str(region.label) if kind in ["land","water"] else str(region.label)+": "+(L.text("нет данных") if region.value == null else _amount(region.value)),polygon)
 				hits[-1]["region"] = {"id":str(region.id),"label":str(region.label),"body":str(spec.get("body",""))}
 	else:
 		var columns: int = ceili(sqrt(spec.regions.size()*1.6)); var rows: int = ceili(float(spec.regions.size())/columns)

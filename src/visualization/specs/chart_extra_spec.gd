@@ -112,7 +112,8 @@ static func validate(value: Dictionary) -> Dictionary:
 				if not row is Dictionary or not text(row.get("id"),80) or ids.has(row.id) or not text(row.get("label")) or (row.get("value") != null and not finite(row.value)): return {}
 				ids[row.id] = true
 				for key: Variant in row:
-					if key not in ["id","label","value","polygons","center"]: return {}
+					if key not in ["id","label","value","polygons","center","kind"]: return {}
+				if row.get("kind","province") not in ["province","land","water"]: return {}
 				if row.has("center") and (not _point(row.center)): return {}
 				if kind == "choropleth" and (not row.get("polygons") is Array or row.polygons.is_empty()): return {}
 				for polygon: Variant in row.get("polygons",[]):

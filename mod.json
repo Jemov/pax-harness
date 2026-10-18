@@ -5,10 +5,10 @@
     "en": "Pax Harness · chats and tools"
   },
   "description": {
-    "ru": "Как открыть чат: включите мод, загрузите или начните партию и нажмите игровую кнопку «ВИ» (помощник) — откроется чат Harness. Настройки мода: меню игры → Настройки → Харнес. Модель и API выбираются в настройках нейросети игры. Чаты, игровые инструменты, 39 видов диаграмм, таблицы, снимки экрана и генерация иллюстраций.",
-    "en": "Open the chat: enable the mod, load or start a campaign, then click the normal in-game assistant (VI) button to open Harness. Mod settings: Game menu → Settings → Harness. Choose the model and API in the game AI settings. Includes chats, game tools, 39 chart types, tables, screenshots and image generation."
+    "ru": "Как открыть чат: включите мод, загрузите или начните партию и нажмите игровую кнопку «ВИ» (помощник) — откроется чат Harness. Настройки мода: меню игры → Настройки → Харнес. Модель и API выбираются в настройках нейросети игры. Чаты, игровые инструменты, 39 видов диаграмм, таблицы, снимки экрана и генерация иллюстраций. Инструменты подгружаются нужными группами; карты воды учитывают сценарии и моды, навигация работает с реальными телами и звёздами игры.",
+    "en": "Open the chat: enable the mod, load or start a campaign, then click the normal in-game assistant (VI) button to open Harness. Mod settings: Game menu → Settings → Harness. Choose the model and API in the game AI settings. Includes chats, game tools, 39 chart types, tables, screenshots and image generation. Tools load by relevant groups on demand. Water maps include scenario/mod edits; navigation uses actual in-game bodies and stars."
   },
-  "version": "1.12.2",
+  "version": "1.13.0",
   "api": 1,
   "game_version": ">=0.31.0",
   "authors": [

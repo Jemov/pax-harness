@@ -3,7 +3,11 @@ extends RefCounted
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const Validation = preload("res://mods/pax_harness/src/runtime/response_validation.gd")
 var sources: Dictionary = {}
+func unregister_source(id: String, reader: Callable) -> bool:
+	if not sources.has(id) or sources[id].reader != reader: return false
+	sources.erase(id); return true
 func register_source(id: String, title: String, description: String, schema: Dictionary, reader: Callable) -> bool:
+	if sources.has(id) and not sources[id].reader.is_valid(): sources.erase(id)
 	if RegEx.create_from_string("^[a-z0-9_]+\\.[a-z0-9_.-]{1,80}$").search(id) == null or sources.has(id) or sources.size() >= 64: return false
 	if title.strip_edges().is_empty() or title.length() > 160 or description.length() > 500 or not reader.is_valid(): return false
 	if not Data.plain(schema) or schema.get("type") != "object" or JSON.stringify(schema).length() > 8000: return false

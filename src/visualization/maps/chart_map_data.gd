@@ -7,6 +7,7 @@ static var _cache: Dictionary = {}
 static func available(game: Object) -> bool:
 	return is_instance_valid(game) and game.has_method("_prov") and game.has_method("provinces_of")
 static func execute(game: Object, args: Dictionary) -> Dictionary:
+	if args.get("include_water",false): return preload("res://mods/pax_harness/src/visualization/maps/chart_water_data.gd").execute(game,args)
 	if args.get("type","choropleth") not in ["choropleth","cartogram"]: return {"ok":false,"code":"charts.route_provider_required","result":{"message":"Symbol/flow maps need recorded points/routes from an explicit map provider or a sourced datasets.chart template. Native province totals contain no measured routes."}}
 	if not Sources.active(game): return {"ok":false,"code":"charts.inactive_world"}
 	var body: String = str(args.get("body",game.home_body()))
@@ -22,7 +23,7 @@ static func execute(game: Object, args: Dictionary) -> Dictionary:
 	var provider: Object = game._prov(body)
 	if not is_instance_valid(provider): return {"ok":false,"code":"charts.geometry_unavailable"}
 	var contours: bool = args.get("type","choropleth") == "choropleth"
-	var key: String = str(provider.get_instance_id())+":"+str(ids)+":"+str(contours)
+	var key: String = str(provider.get_instance_id())+":"+str(provider.get("version"))+":"+str(ids)+":"+str(contours)
 	if not _cache.has(key):
 		var geometry: Dictionary = geometry(provider,ids,contours)
 		if not geometry.get("ok",false): return geometry

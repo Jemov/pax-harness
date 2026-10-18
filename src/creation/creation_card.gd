@@ -81,11 +81,11 @@ func _build(data: Dictionary) -> void:
 	if project and status=="pending":
 		var apply:=button(L.text("Применить"),func(): service.view._apply(identity)); apply.name="Apply_"+identity.replace(":","_"); actions.add_child(apply)
 		actions.add_child(button(L.text("Отклонить"),func(): service.reject_from_player(identity)))
-	elif data.kind=="object":
-		actions.add_child(button(L.text("Перейти к телу"),func():
-			service.owner_mod.chat_ui.close()
-			if is_instance_valid(service.view): service.view.window.hide()
-			service.game.focus(d.body,true)))
+	elif data.kind in ["object","object_damage"] and not model_definition.is_empty() and service.records.has(model_definition.id):
+		var focus:=button(L.text("Перейти к объекту"),func():
+			var result: Dictionary=service.focus_object(str(model_definition.id))
+			if not result.ok: feedback.text=L.text("Не удалось перейти к объекту: ")+str(result.get("code","")))
+		focus.name="FocusObject_"+str(model_definition.id); actions.add_child(focus)
 	elif data.kind=="surface":
 		actions.add_child(button(L.text("Открыть карту поверхности"),func(): service.view.window.hide(); service.game.scene_root().galaxy_view().open_body_map(Array(service.game.body_names()).find("harness_surface_"+str(d.id)))))
 	if project:

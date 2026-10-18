@@ -6,6 +6,7 @@ const SHAPES := ["box","sphere","cylinder","torus","line"]
 static func definitions() -> Array:
 	var result: Array = []
 	for item: Array in [
+		["creation.focus","Move the actual space camera to a specific approved object, not just its parent planet. Closes chat and frames the object's real geometry. Camera only: no physical travel or time advance.",{"object_id":{"type":"string","maxLength":48}},["object_id"]],
 		["creation.capabilities","Read supported declarative content, voxel model format, resource classes and actual limitations. No creation or map generation.",{},[]],
 		["creation.list","Read this campaign's created objects/resources/panels/warp links and pending player-review projects. Never implies a pending project was applied.",{},[]],
 		["creation.propose","ONLY when the current player explicitly asks to add/create content: prepare ONE declarative project for PLAYER REVIEW. This does NOT create anything in the world. The player must click Apply in its review card; there is NO apply tool. Object model is bounded voxel JSON, resource starts at zero, panel is labelled rows only, warp_link joins two existing approved warp_gate objects, warp_transit reroutes one existing ship through an approved link. No scripts or arbitrary UI/code. First read creation.capabilities for exact formats. Never propose unsolicited content or claim a pending project was created.",{"kind":{"type":"string","enum":KINDS},"definition":{"type":"object","additionalProperties":true}},["kind","definition"]]

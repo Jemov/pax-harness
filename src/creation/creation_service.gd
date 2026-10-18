@@ -12,6 +12,7 @@ var proposals: Array = []
 var sequence := 0
 var view: Node
 var meshes: Array = []
+var object_navigation: Node
 var _world_id := 0
 var _bus_registered := false
 var _name_keys: Array=[]
@@ -23,6 +24,8 @@ func setup(owner: Node) -> void:
 	if api != null and api.get("bus") != null and not _bus_registered:
 		api.bus.on("resource_rows",_resource_rows,70,"pax_harness"); _bus_registered=true
 func clear() -> void:
+	if is_instance_valid(object_navigation): object_navigation.queue_free()
+	object_navigation=null
 	_clear_names()
 	if is_instance_valid(view): view.dispose(); view.queue_free()
 	view=null
@@ -57,7 +60,7 @@ func summaries() -> Array:
 		var r: Dictionary=records[id]; var d: Dictionary=r.definition
 		result.append({"id":id,"kind":r.kind,"name":d.get("name",{}),"body":d.get("body",""),"behavior":d.get("behavior",""),"from_id":d.get("from_id",""),"to_id":d.get("to_id",""),"days":d.get("days"),"resource_key":r.get("resource_key",""),"surface_body":Surface.body_id(id) if r.kind=="surface" else ""})
 		if r.kind=="object":
-			result[-1].merge({"destructible":d.get("destructible",false),"voxel_grid_size":d.model.size.duplicate(),"damage_count":r.get("damage",[]).size(),"altitude_km":d.altitude_km,"size_km":d.size_km})
+			result[-1].merge({"destructible":d.get("destructible",false),"voxel_grid_size":d.model.size.duplicate(),"damage_count":r.get("damage",[]).size(),"altitude_km":d.altitude_km,"size_km":d.size_km,"focus_tool":"creation.focus"})
 	return result
 func capabilities() -> Dictionary:
 	return {"voxel_models":api!=null and api.get("voxel")!=null,"terrain_component_required_for_models":false,
@@ -82,6 +85,7 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 		for p: Dictionary in proposals: pending.append({"id":p.id,"kind":p.kind,"name":p.definition.get("name",{}),"status":p.status,"error":p.get("error","")})
 		return {"ok":true,"result":{"created":summaries(),"projects":pending,"review_panel":"harness.creations"}}
 	if scope.get("analysis_child",false): return {"ok":false,"code":"creation.not_available_in_analysis"}
+	if name=="creation.focus": return focus_object(str(args.get("object_id","")))
 	var request: String=_player_request(scope)
 	if request=="": return {"ok":false,"code":"creation.direct_player_request_required"}
 	for forbidden: String in ["только чтение","ничего не создавай","ничего не добавляй","read-only","read only","do not create","don't create"]:
@@ -238,7 +242,12 @@ func _spawn(d: Dictionary, cuts: Array=[], restoring: bool=false) -> bool:
 	if not cuts.is_empty():
 		var intact: MeshInstance3D=api.voxel.model(d.model); center=intact.get_aabb().get_center(); intact.free()
 	mesh.position=direction*radius*(1.0+float(d.altitude_km)/r_km)-mesh.basis*center
+	mesh.set_meta("harness_model_center",center)
 	meshes.append(mesh); return true
+func focus_object(id: String) -> Dictionary:
+	if not is_instance_valid(object_navigation):
+		object_navigation=preload("res://mods/pax_harness/src/creation/object_navigation.gd").new(); game.scene_root().add_child(object_navigation); object_navigation.setup(self)
+	return object_navigation.focus(id)
 func damage_from_player(id: String, center: Array, radius: float, notify: bool=true) -> Dictionary:
 	var checked: Dictionary=Policy.validate("object_damage",{"object_id":id,"center":center,"radius":radius})
 	if not checked.ok or not current(): return {"ok":false,"code":"creation.invalid_damage"}

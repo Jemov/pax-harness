@@ -2,7 +2,7 @@ extends RefCounted
 ## Discovery changes schema exposure only; the original grants remain authoritative.
 const CORE := ["tools.groups", "tools.load"]
 const INFO := {
-	"creation":["Player-reviewed content","Voxel objects, icons, resources, panels, warp routes and artificial surfaces with native territories. Proposals only; player Apply button required, no apply tool."],
+	"creation":["Player-reviewed content","Voxel objects, icons, resources, panels, warp routes and artificial surfaces with native territories require player Apply; no apply tool. creation.focus moves only the space camera to an approved object."],
 	"charts":["Charts and tables","Visualization schemas, datasets, transformations and statistics."],
 	"maps":["Maps and provinces","Land, water and mod map layers; province observations."],
 	"analytics":["Analytics and mod data","Discover and page installed-mod data sources; resource history."],

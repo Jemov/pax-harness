@@ -36,7 +36,7 @@ The Harness tab controls text size, conversation display, keyboard shortcuts, se
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.15.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.15.1.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 
@@ -100,3 +100,5 @@ Runtime entry: `src/main.gd`. Code is organized under `src/`, translations under
 Model projects appear directly in chat messages. Drag to rotate, scroll to zoom, and use Apply or Reject in the card. The collection in Settings → Harness has search, filters and ten rows per page, with collapsed details.
 
 Ordinary voxel models need no optional component. Detached destructible objects require **Voxel Tools**. Enable Destruction in an applied object card and click the model to remove a region of its voxel volume. Damage persists with the campaign. The agent can propose a separate damage operation when explicitly requested. This does not add automatic combat, debris or portal animation.
+
+Use **Go to object** on an applied model card to close chat and frame the actual object in space, rather than only its parent planet. Standard orbit controls and object-scale wheel zoom remain available. The agent can also use creation.focus for the same camera action.

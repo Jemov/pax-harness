@@ -11,9 +11,10 @@ static func execute(game: Object, args: Dictionary) -> Dictionary:
 	if args.get("type","choropleth") not in ["choropleth","cartogram"]: return {"ok":false,"code":"charts.route_provider_required","result":{"message":"Symbol/flow maps need recorded points/routes from an explicit map provider or a sourced datasets.chart template. Native province totals contain no measured routes."}}
 	if not Sources.active(game): return {"ok":false,"code":"charts.inactive_world"}
 	var body: String = str(args.get("body",game.home_body()))
-	if body != game.home_body(): return {"ok":false,"code":"charts.home_body_only","result":{"message":"No new body map is generated. Select the currently loaded home body."}}
-	var country: String = str(args.get("country",game.country()))
-	var owned: Array = game.provinces_of(body,country)
+	if body not in game.body_names() or not game.body(body).get("open",false): return {"ok":false,"code":"tools.unknown_or_hidden_body"}
+	if body != game.home_body() and body not in Sources.native_loaded_maps(game): return {"ok":false,"code":"charts.map_not_loaded","result":{"message":"Open the body map with navigation.open_surface first, then repeat. Reading a chart never creates a map."}}
+	var country: String = str(args.get("country",game.country() if body==game.home_body() else ""))
+	var owned: Array = game.provinces_of(body,country) if country!="" else Array(range(1,game.province_count(body)+1))
 	var ids: Array = args.get("province_ids",owned).duplicate()
 	if ids.is_empty() or ids.size() > 64: return {"ok":false,"code":"charts.select_up_to_64_provinces","result":{"available_count":owned.size(),"message":"Select 1..64 actual province IDs from analytics.read/provinces.read."}}
 	for id: Variant in ids:
@@ -31,7 +32,7 @@ static func execute(game: Object, args: Dictionary) -> Dictionary:
 		_cache[key] = geometry
 	var geometry: Dictionary = _cache[key]
 	var metric: String = str(args.get("metric","area_km2"))
-	if country != game.country() and metric in ["enterprise_count","enterprise_levels"]: return {"ok":false,"code":"charts.foreign_economy_unverified"}
+	if metric in ["enterprise_count","enterprise_levels"] and (country != game.country() or body not in game.colonies()): return {"ok":false,"code":"charts.foreign_economy_unverified"}
 	var custom: Dictionary = args.get("values",{})
 	if metric == "custom" and str(args.get("source","")).strip_edges().is_empty(): return {"ok":false,"code":"charts.custom_source_required"}
 	var counts: Dictionary = {}; var levels: Dictionary = {}
@@ -42,8 +43,8 @@ static func execute(game: Object, args: Dictionary) -> Dictionary:
 		var row: Dictionary = game.province(body,id)
 		var value: Variant = row.get("area_km2") if metric == "area_km2" else counts.get(id,0) if metric == "enterprise_count" else levels.get(id,0) if metric == "enterprise_levels" else custom.get(str(id))
 		regions.append({"id":str(id),"label":str(row.get("name",id)),"value":value,"polygons":geometry.regions[str(id)].polygons,"center":geometry.regions[str(id)].center})
-	var source: String = str(args.get("source",L.text("Текущие данные провинций · ")+country+", "+game.date_text()))+(L.text("; границы по общей сетке карты игры") if contours else L.text("; схематичные плитки по положениям провинций"))
-	var chart: Dictionary = {"body":body,"type":args.get("type","choropleth"),"title":args.get("title",L.text("Провинции · ")+country),"source":source,"regions":regions,"aspect":geometry.aspect,"unit":L.text("км²") if metric == "area_km2" else L.text("предприятий") if metric == "enterprise_count" else L.text("уровни") if metric == "enterprise_levels" else str(args.get("unit",""))}
+	var source: String = str(args.get("source",L.text("Текущие данные провинций · ")+(country if country!="" else body)+", "+game.date_text()))+(L.text("; границы по общей сетке карты игры") if contours else L.text("; схематичные плитки по положениям провинций"))
+	var chart: Dictionary = {"body":body,"type":args.get("type","choropleth"),"title":args.get("title",L.text("Провинции · ")+(country if country!="" else body)),"source":source,"regions":regions,"aspect":geometry.aspect,"unit":L.text("км²") if metric == "area_km2" else L.text("предприятий") if metric == "enterprise_count" else L.text("уровни") if metric == "enterprise_levels" else str(args.get("unit",""))}
 	if Chart.validate(chart).is_empty(): return {"ok":false,"code":"charts.invalid_map_data"}
 	return {"ok":true,"result":{"chart":chart,"metric":metric,"country":country,"date":game.date_text(),"selected_count":ids.size(),"country_province_count":owned.size(),"geometry":"native province raster with shared-grid borders; equal-tile cartogram is schematic, not area-preserving geography","note":"Display returned chart unchanged. ONLY selected regions are drawn; unselected provinces are omitted, NOT gray. Within the selected set gray means no supplied value, not zero."}}
 

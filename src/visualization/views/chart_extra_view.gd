@@ -163,7 +163,12 @@ func _draw() -> void:
 		captions_changed.emit.call_deferred(caption_keys)
 	if focus_index() >= 0 and focus_index() < hits.size():
 		var row: Dictionary = hits[focus_index()]
-		if row.has("polygon"):
+		if row.has("region") and row.region.get("kind","") in ["water","land"]:
+			# Raster runs are an implementation detail, not separate territories.
+			for piece: Dictionary in hits:
+				if piece.get("region",{}).get("id") == row.region.id and piece.has("polygon"):
+					_fill(piece.polygon,Color(0.8,0.9,1.0,hover_mix*0.13))
+		elif row.has("polygon"):
 			draw_polyline(row.polygon+PackedVector2Array([row.polygon[0]]),Color(Color("#d9e6ff"),hover_mix*0.8),1.5,true)
 		else: draw_style_box(Style.box(Color(1,1,1,0.07*hover_mix),4,Color.TRANSPARENT,0),row.rect)
 
@@ -468,7 +473,7 @@ func _map() -> void:
 				var bounds := Rect2(polygon[0],Vector2.ZERO)
 				for point: Vector2 in polygon: bounds = bounds.expand(point)
 				_hit(bounds,str(region.label) if kind in ["land","water"] else str(region.label)+": "+(L.text("нет данных") if region.value == null else _amount(region.value)),polygon)
-				hits[-1]["region"] = {"id":str(region.id),"label":str(region.label),"body":str(spec.get("body",""))}
+				hits[-1]["region"] = {"id":str(region.id),"label":str(region.label),"body":str(spec.get("body","")),"kind":kind}
 	else:
 		var columns: int = ceili(sqrt(spec.regions.size()*1.6)); var rows: int = ceili(float(spec.regions.size())/columns)
 		var cell := Vector2(area.size.x/columns,area.size.y/rows); var used: Dictionary = {}

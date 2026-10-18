@@ -21,7 +21,7 @@ func register_map_source(id: String, title: String, body: String, reader: Callab
 func unregister_map_source(id: String, reader: Callable) -> bool:
 	return map_sources.unregister_source(id,reader)
 func map_provider_tool(name: String, arguments: Dictionary) -> Dictionary:
-	if name == "charts.map_sources": return map_sources.describe()
+	if name == "charts.map_sources": return map_sources.describe(_game)
 	if str(arguments.get("provider","")) != "": return map_sources.execute(_game,arguments)
 	return preload("res://mods/pax_harness/src/visualization/maps/chart_map_data.gd").execute(_game,arguments)
 
@@ -67,6 +67,7 @@ var _model_defaults: Dictionary = {}
 var _lab_used: bool = false
 
 var _localization: Node
+var _creations: Node
 
 func _mod_loaded() -> void:
 	L.configure(load_json("data/lang/ru.json",{}),load_json("data/lang/en.json",{}))
@@ -80,6 +81,7 @@ func _mod_loaded() -> void:
 	_router = ProviderRouter.new()
 	_router.setup(self)
 	_runtime = UniversalRuntime.new()
+	_creations = preload("res://mods/pax_harness/src/creation/creation_service.gd").new(); add_child(_creations); _creations.setup(self)
 	_ui_capture = load_resource("src/ui/game/ui_capture.gd").new()
 	add_child(_ui_capture)
 	_ui_capture.setup(self)
@@ -105,9 +107,10 @@ func _mod_loaded() -> void:
 
 func _game_available(candidate: RefCounted = null) -> bool:
 	if candidate == null: candidate = _game
-	return candidate != null and candidate == Pax.game and StockCompat.active(candidate)
+	return candidate != null and Pax.game != null and StockCompat.active(candidate) and candidate.scene_root() == Pax.game.scene_root()
 
 func _restore_state(state: Dictionary) -> void:
+	if is_instance_valid(_creations): _creations.restore(state.get("creations",{}))
 	resource_history = ResourceHistory.new()
 	resource_history.restore(state.get("resource_history",{}))
 	chat_store = load_resource("src/chat/chat_store.gd").new()
@@ -133,12 +136,13 @@ func _mods_loaded(game: PaxGame, states: Dictionary) -> void:
 func _save_state(_facade: PaxGame) -> Dictionary:
 	if chat_store == null: return {}
 	if resource_history != null and _game_available(): resource_history.capture(_game,true)
-	return {"version":1,"chat_sessions":chat_store.snapshot(),"order_archive":order_archive.snapshot() if order_archive != null else {},"resource_history":resource_history.snapshot() if resource_history != null else {},"imported_from":_migration_origin}
+	return {"version":1,"chat_sessions":chat_store.snapshot(),"order_archive":order_archive.snapshot() if order_archive != null else {},"resource_history":resource_history.snapshot() if resource_history != null else {},"imported_from":_migration_origin,"creations":_creations.snapshot() if is_instance_valid(_creations) else {}}
 
 func _world_ready(game: PaxGame) -> void:
 	if not _game_available(game): return
 	_game = game
 	if chat_store == null: _restore_state({})
+	if is_instance_valid(_creations): _creations.world_ready(game)
 	order_archive.setup(game)
 	resource_history.capture(game,true)
 	_ui_generation += 1
@@ -146,6 +150,7 @@ func _world_ready(game: PaxGame) -> void:
 	_attach_transport.call_deferred()
 
 func _reset() -> void:
+	if is_instance_valid(_creations): _creations.clear()
 	if is_instance_valid(_ui_capture): _ui_capture.clear()
 	if is_instance_valid(_image_generation): _image_generation.clear_jobs()
 	if is_instance_valid(chat_stream): chat_stream.cancel_all()
@@ -244,10 +249,13 @@ func resolve_image(handle: Dictionary) -> Dictionary:
 
 func ui_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
 	if not is_instance_valid(_ui_capture) or not _game_available(): return {"ok":false,"code":"ui.inactive_world"}
+	if name=="ui.open" and arguments.get("panel")=="harness.creations":
+		return {"ok":true,"result":{"panel":"harness.creations","visible":_creations.open_review(),"world_changed":false}}
 	if name == "ui.open" and arguments.get("panel") == "settings.harness":
 		return {"ok":true,"result":{"panel":"settings.harness","visible":true,"navigation_only":true,"settings_modified":false}} if is_instance_valid(_settings_ui) and _settings_ui.open() else {"ok":false,"code":"ui.panel_unavailable"}
 	var result: Dictionary = _ui_capture.execute(_game,name,arguments,scope)
 	if name == "ui.panels" and result.get("ok",false) and is_instance_valid(_settings_ui): result.result.panels.append({"id":"settings.harness","title":L.text("Настройки · Харнес")})
+	if name=="ui.panels" and result.get("ok",false): result.result.panels.append({"id":"harness.creations","title":L.text("Новые сущности")})
 	return result
 
 func image_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
@@ -302,16 +310,18 @@ func _prepare_source(source: Dictionary) -> Dictionary:
 	prepared.user = JSON.stringify({"player_asked":source.context.get("player_asked",source.get("request_text","")),"current":source.get("campaign_context",{}).get("current",{}),"history_note":"Full chat history is supplied separately; other archives are read through tools."})
 	prepared["options"] = {"temperature":0.2,"max_tokens":8192}
 	var grants := PackedStringArray()
+	var compiler_default_count:=0
 	for row: Dictionary in _tool_registry().catalogue():
 		if not row.get("available",true): continue
-		if row.name not in ["money.add","resources.add","characters.create","bodies.set_parameter","provinces.set_owner","diplomacy.change_relation"]: grants.append(row.name)
+		if row.name not in preload("res://mods/pax_harness/src/runtime/tools/tool_permissions.gd").OFF_BY_DEFAULT: compiler_default_count+=1
+		if row.get("enabled",true): grants.append(row.name)
 	var lab: Node = _lab()
 	if lab != null:
 		var compiled: Dictionary = lab.harness_prepare_assistant(source.duplicate(true))
 		if not compiled.get("ok",false):
 			var compile_error: String = str(compiled.get("error","laboratory_compile_failed"))
 			var profile: String = str(lab.selected_profile()) if lab.has_method("selected_profile") else ""
-			if not preload("res://mods/pax_harness/src/core/optional_compiler_policy.gd").legacy_default_limit(profile,compile_error,grants.size()): return {"ok":false,"source":prepared,"grants":grants,"error":compile_error}
+			if not preload("res://mods/pax_harness/src/core/optional_compiler_policy.gd").legacy_default_limit(profile,compile_error,compiler_default_count): return {"ok":false,"source":prepared,"grants":grants,"error":compile_error}
 			# The old compiler bounds its autogenerated enabled_tools list to 64.
 			# Use our equivalent built-in default; never truncate executable grants
 			# and never ignore an explicit custom profile or other compiler error.
@@ -334,7 +344,8 @@ func _prepare_source(source: Dictionary) -> Dictionary:
 		prepared.system += "\n\n# Current game/scenario rules\n"+str(source.world_instructions)+"\nThe Harness runtime response and executable-tool contract below governs this assistant turn; legacy channel output-format instructions above do not grant actions."
 	prepared["tool_group_guides"] = [
 		{"groups":["charts","maps","analytics"],"text":read_text("prompts/charts.md")},
-		{"groups":["ui","images"],"text":read_text("prompts/interface.md")}
+		{"groups":["ui","images"],"text":read_text("prompts/interface.md")},
+		{"groups":["creation"],"text":read_text("prompts/creation.md")}
 	]
 	var provider: Node = StockCompat.provider(_game) if _game_available() else null
 	if provider != null:
@@ -342,6 +353,7 @@ func _prepare_source(source: Dictionary) -> Dictionary:
 		# Reserve the actual output allowance before compaction and native fitting.
 		prepared.options["max_tokens"] = maxi(int(prepared.options.get("max_tokens",8192)),int(limits.get("output_tokens",0)))
 	prepared.options["max_tokens"] = generation_output_limit(int(prepared.options.get("max_tokens",8192)))
+	grants = PackedStringArray(Array(grants).filter(func(id: String): return preload("res://mods/pax_harness/src/runtime/tools/tool_permissions.gd").allowed(self,id)))
 	return {"ok":true,"source":prepared,"grants":grants}
 
 func _observe_request(event: Dictionary) -> void:
@@ -715,8 +727,12 @@ func _tool_registry() -> RefCounted:
 
 func _localization_roots() -> Array:
 	var roots: Array = [chat_ui]
+	if is_instance_valid(_creations) and is_instance_valid(_creations.view): roots.append(_creations.view.window)
 	if is_instance_valid(_settings_ui): roots.append_array([_settings_ui.panel,_settings_ui.tab_button])
 	return roots
 
 func _language_changed() -> void:
 	if is_instance_valid(chat_ui): chat_ui.apply_preferences()
+	if is_instance_valid(_creations):
+		_creations.refresh_names()
+		if is_instance_valid(_creations.view): _creations.view.refresh()

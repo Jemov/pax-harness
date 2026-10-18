@@ -167,6 +167,9 @@ static func native_loaded_maps(game: Object) -> Array:
 	if main == null:
 		return []
 	var providers: Variant = main.get("body_provinces")
+	if not providers is Dictionary:
+		var scouting: Variant=main.call("scouting") if main.has_method("scouting") else null
+		if scouting is Object and is_instance_valid(scouting): providers=scouting.get("body_provinces_cache")
 	var names: Array = []
 	if providers is Dictionary:
 		for name: Variant in providers:

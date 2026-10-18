@@ -44,8 +44,15 @@ func _blocked(point: Vector2) -> bool:
 func _input(event: InputEvent) -> void:
 	if not event is InputEventMouseButton or not event.pressed: return
 	if event.button_index not in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]: return
-	if event.ctrl_pressed or event.shift_pressed or event.alt_pressed or event.meta_pressed: return
+	if not ui.surface.is_visible_in_tree() or not Rect2(Vector2.ZERO,ui.surface.size).has_point(ui.surface.get_global_transform_with_canvas().affine_inverse()*event.position): return
+	# Native maps use _input too, before GUI bubbling. Consume wheel input even
+	# at scroll limits and over non-scrollable content, then route it locally.
+	get_viewport().set_input_as_handled()
 	if _blocked(event.position): return
+	var chart: Node = _chart_at(ui.surface,event.position)
+	if chart != null and (event.ctrl_pressed or chart.is_map()):
+		chart.change_zoom(chart.target_zoom+(0.25 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.25)); return
+	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed: return
 	for container: ScrollContainer in containers:
 		if not container.is_visible_in_tree() or not container.get_global_rect().has_point(event.position): continue
 		if _maximum(container) <= 0: return
@@ -53,6 +60,14 @@ func _input(event: InputEvent) -> void:
 		nudge(container,WHEEL_STEP*factor*(-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1))
 		get_viewport().set_input_as_handled()
 		return
+
+func _chart_at(node: Node, point: Vector2) -> Node:
+	if node is Control and (not node.is_visible_in_tree() or (node.clip_contents and not Rect2(Vector2.ZERO,node.size).has_point(node.get_global_transform_with_canvas().affine_inverse()*point))): return null
+	if node.has_method("wheel_contains") and node.wheel_contains(point): return node
+	for child: Node in node.get_children():
+		var found: Node = _chart_at(child,point)
+		if found != null: return found
+	return null
 
 func _process(delta: float) -> void:
 	var factor: float = 1.0-exp(-RESPONSE*delta)

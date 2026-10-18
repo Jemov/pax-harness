@@ -1,0 +1,17 @@
+extends RefCounted
+const LABELS := {"orders.failed":"Архив проваленных планов","orders.read":"Текущие приказы","orders.submit":"Передать приказ",
+	"tools.groups":"Группы инструментов","tools.load":"Загрузка группы инструментов",
+	"ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",
+	"prompts.list":"Промпты лаборатории","prompts.read":"Чтение инструкций","prompts.update":"Изменение инструкций",
+	"prompts.patch":"Правка инструкций","plan.read":"План задачи","plan.update":"Сохранение плана","instructions.read":"Постоянные инструкции","instructions.update":"Сохранение инструкций","trace.read":"Журнал действий","trace.replay":"Запись прошлого действия","analysis.delegate":"Независимый анализ",
+	"orders.update":"Изменить приказ","orders.cancel":"Отменить приказ","world.read":"Обзор мира","history.read":"История мира",
+	"analytics.sources":"Источники данных модов","analytics.query":"Чтение данных мода","charts.describe":"Подготовка диаграммы",
+	"bodies.read":"Сведения о небесном теле","bodies.set_parameter":"Изменение небесного тела","characters.connect":"Связь с персонажем","characters.exists":"Поиск персонажа","characters.create":"Создание персонажа",
+	"diplomacy.read":"Дипломатия","diplomacy.send":"Отправить дипломатическое сообщение","diplomacy.change_relation":"Изменение отношений","diplomacy.declare_war":"Объявление войны",
+	"laws.propose":"Предложить закон","military.order":"Военный приказ","money.add":"Изменение казны","resources.add":"Изменение запасов","navigation.focus":"Переместить камеру",
+	"provinces.set_owner":"Изменение владельца провинции","research.propose":"Предложить исследование","research.confirm":"Подтвердить исследование","research.cancel":"Отменить исследование",
+	"ships.read":"Сведения о кораблях","ships.launch":"Отправить корабль","time.advance":"Пропустить время","time.observe":"Режим наблюдения","native.complete_task":"Завершение задачи",
+	"datasets.transform":"Подготовить набор данных","datasets.read":"Прочитать страницу данных","datasets.chart":"Построить график по данным","statistics.calculate":"Рассчитать статистику","charts.map_sources":"Источники карт модов",
+	"space.search":"Найти тело или звезду","space.rules":"Правила космических проектов","navigation.enter_system":"Открыть звёздную систему",
+	"money.read":"Проверить казну","resources.read":"Запасы ресурсов","resources.history":"История запасов ресурсов","charts.function":"Расчёт графика зависимости","charts.map":"Карта показателей провинций","analytics.read":"Аналитические данные страны","characters.list":"Список персонажей","characters.read":"Сведения о персонаже",
+	"research.read":"Исследования","laws.read":"Законы","military.read":"Военные подразделения","provinces.read":"Сведения о провинции","chat.history":"История этого чата","chat.list":"Поиск чатов","chat.read":"Прочитать чат","chat.send":"Сообщение в другой чат","creation.capabilities":"Возможности создания сущностей","creation.list":"Сущности и проекты партии","creation.propose":"Подготовить проект сущности","space.surface":"Карта поверхности тела","navigation.open_surface":"Открыть карту тела"}

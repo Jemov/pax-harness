@@ -12,11 +12,18 @@ func register_source(id: String, title: String, body: String, reader: Callable) 
 	if title.is_empty() or title.length() > 160 or body.is_empty() or body.length() > 160 or not reader.is_valid(): return false
 	sources[id] = {"id":id,"title":title,"body":body,"reader":reader}
 	return true
-func describe() -> Dictionary:
+func describe(game: Object = null) -> Dictionary:
 	var rows: Array = []
 	for row: Dictionary in sources.values():
 		if row.reader.is_valid(): rows.append({"id":row.id,"title":row.title,"body":row.body})
-	return {"ok":true,"result":{"sources":rows,"native_body":"Loaded home body through charts.map without provider", "note":"Only explicit mod adapters are listed. Select provider ID and its registered body; no remote assets or new worlds are loaded."}}
+	var native: Array=[]
+	if is_instance_valid(game):
+		var loaded: Array=preload("res://mods/pax_harness/src/data/world_sources.gd").native_loaded_maps(game)
+		for body: String in game.body_names():
+			var d: Dictionary=game.body(body)
+			if not d.get("open",false) or d.get("genus")!="rock": continue
+			native.append({"body":body,"names":d.get("harness_surface_names",{}),"map_loaded":body==game.home_body() or body in loaded,"artificial_parent":d.get("harness_surface_parent","")})
+	return {"ok":true,"result":{"sources":rows,"native_bodies":native,"note":"Native charts.map supports every already-loaded solid body, including custom scenario bodies and approved artificial surfaces. Use navigation.open_surface to generate/open a discovered body's native map first. A missing country on a non-home body selects its territories without a country filter. Explicit mod providers are listed separately; discovering sources never generates maps."}}
 func execute(game: Object, args: Dictionary) -> Dictionary:
 	var id: String = str(args.get("provider",""))
 	if not sources.has(id) or not sources[id].reader.is_valid(): return {"ok":false,"code":"charts.map_provider_unavailable"}

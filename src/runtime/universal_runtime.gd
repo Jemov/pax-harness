@@ -117,7 +117,7 @@ func _step(token: String) -> void:
 	var tools: Array = []
 	var catalogue: Array = s.registry.catalogue()
 	for tool: Dictionary in catalogue:
-		if tool.name in s.scope.enabled_tools and tool.get("available",true) and Groups.visible(s.scope,tool.name):
+		if tool.name in s.scope.enabled_tools and tool.get("available",true) and tool.get("enabled",true) and Groups.visible(s.scope,tool.name):
 			tools.append(tool.duplicate(true))
 	if "native.complete_task" in s.scope.enabled_tools:
 		tools.append(s.native.get("metadata",{}).duplicate(true))

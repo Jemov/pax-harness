@@ -130,6 +130,7 @@ func _label(menu: Node, text: String) -> Label:
 
 func _build(menu: Node) -> void:
 	fields.clear(); _shortcut_buttons.clear(); _shortcut_action = ""
+	panel.add_child(preload("res://mods/pax_harness/src/ui/game/tool_catalogue.gd").build(owner_mod))
 	var chats_box: VBoxContainer = _section(menu,L.text("Диалог"),"")
 	var font := SpinBox.new(); font.min_value = 10; font.max_value = 28; font.step = 1; font.suffix = "px"
 	font.value = Preferences.value(owner_mod,"dialog_font_size"); fields.dialog_font_size = font

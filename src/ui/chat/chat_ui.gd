@@ -13,22 +13,7 @@ const SIDE := Color("#111215")
 const TEXT := Color("#d0d1d3")
 const QUIET := Color("#949ba7")
 const ACCENT := Color("#8fcaff")
-const TOOL_LABELS := {"orders.failed":"Архив проваленных планов","orders.read":"Текущие приказы","orders.submit":"Передать приказ",
-	"tools.groups":"Группы инструментов","tools.load":"Загрузка группы инструментов",
-	"ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",
-	"prompts.list":"Промпты лаборатории","prompts.read":"Чтение инструкций","prompts.update":"Изменение инструкций",
-	"prompts.patch":"Правка инструкций","plan.read":"План задачи","plan.update":"Сохранение плана","instructions.read":"Постоянные инструкции","instructions.update":"Сохранение инструкций","trace.read":"Журнал действий","trace.replay":"Запись прошлого действия","analysis.delegate":"Независимый анализ",
-	"orders.update":"Изменить приказ","orders.cancel":"Отменить приказ","world.read":"Обзор мира","history.read":"История мира",
-	"analytics.sources":"Источники данных модов","analytics.query":"Чтение данных мода","charts.describe":"Подготовка диаграммы",
-	"bodies.read":"Сведения о небесном теле","bodies.set_parameter":"Изменение небесного тела","characters.connect":"Связь с персонажем","characters.exists":"Поиск персонажа","characters.create":"Создание персонажа",
-	"diplomacy.read":"Дипломатия","diplomacy.send":"Отправить дипломатическое сообщение","diplomacy.change_relation":"Изменение отношений","diplomacy.declare_war":"Объявление войны",
-	"laws.propose":"Предложить закон","military.order":"Военный приказ","money.add":"Изменение казны","resources.add":"Изменение запасов","navigation.focus":"Переместить камеру",
-	"provinces.set_owner":"Изменение владельца провинции","research.propose":"Предложить исследование","research.confirm":"Подтвердить исследование","research.cancel":"Отменить исследование",
-	"ships.read":"Сведения о кораблях","ships.launch":"Отправить корабль","time.advance":"Пропустить время","time.observe":"Режим наблюдения","native.complete_task":"Завершение задачи",
-	"datasets.transform":"Подготовить набор данных","datasets.read":"Прочитать страницу данных","datasets.chart":"Построить график по данным","statistics.calculate":"Рассчитать статистику","charts.map_sources":"Источники карт модов",
-	"space.search":"Найти тело или звезду","space.rules":"Правила космических проектов","navigation.enter_system":"Открыть звёздную систему",
-	"money.read":"Проверить казну","resources.read":"Запасы ресурсов","resources.history":"История запасов ресурсов","charts.function":"Расчёт графика зависимости","charts.map":"Карта показателей провинций","analytics.read":"Аналитические данные страны","characters.list":"Список персонажей","characters.read":"Сведения о персонаже",
-	"research.read":"Исследования","laws.read":"Законы","military.read":"Военные подразделения","provinces.read":"Сведения о провинции","chat.history":"История этого чата","chat.list":"Поиск чатов","chat.read":"Прочитать чат","chat.send":"Сообщение в другой чат"}
+const TOOL_LABELS = preload("res://mods/pax_harness/src/runtime/tools/tool_labels.gd").LABELS
 var owner_mod: Node
 var store: RefCounted
 var main: Node
@@ -286,7 +271,10 @@ func _chart_go_to_province(region: Dictionary) -> void:
 	if target.is_empty(): return
 	var main: Node = owner_mod._game.scene_root()
 	close()
-	main.army_map_view().show_province_on_map(int(target.id))
+	if target.body==owner_mod._game.home_body(): main.army_map_view().show_province_on_map(int(target.id))
+	else:
+		main.galaxy_view().open_body_map(Array(owner_mod._game.body_names()).find(target.body))
+		main.political_map.навести_на(owner_mod._game._prov(target.body).label_point(int(target.id)),2.0)
 	main.get_window().grab_focus()
 
 func _native_visibility() -> void:
@@ -612,6 +600,8 @@ func _render_tool(group: VBoxContainer, message_id: String, event: Dictionary) -
 	button.add_theme_color_override("font_color",Color("#ed9292") if state == "failed" else QUIET)
 	button.add_theme_stylebox_override("normal",Style.box(Color.TRANSPARENT,0,Color.TRANSPARENT,5))
 	group.add_child(button)
+	if str(event.name)=="creation.propose" and state=="complete" and is_instance_valid(owner_mod.get("_creations")):
+		group.add_child(_button(L.text("Рассмотреть проект"),owner_mod._creations.open_review))
 	if not technical or not _expanded.get(key,false): return
 	var details := TextEdit.new()
 	details.name = "ToolDetails"

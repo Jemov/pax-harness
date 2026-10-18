@@ -59,6 +59,17 @@ func _input(event: InputEvent) -> void:
 			scroll_horizontal = roundi(_scroll_origin.x-offset.x); scroll_vertical = roundi(_scroll_origin.y-offset.y)
 			get_viewport().set_input_as_handled()
 		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE and not event.pressed: _dragging = false
-	if event is InputEventMouseButton and event.pressed and event.ctrl_pressed and get_global_rect().has_point(get_global_mouse_position()) and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+	if event is InputEventMouseButton and event.pressed and wheel_contains(event.position) and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN] and (event.ctrl_pressed or is_map()):
 		change_zoom(target_zoom+(0.25 if event.button_index == MOUSE_BUTTON_WHEEL_UP else -0.25))
 		get_viewport().set_input_as_handled()
+
+func wheel_contains(point: Vector2) -> bool:
+	if not is_visible_in_tree() or not Rect2(Vector2.ZERO,size).has_point(get_global_transform_with_canvas().affine_inverse()*point): return false
+	var ancestor: Node=get_parent()
+	while ancestor!=null:
+		if ancestor is Control and ancestor.clip_contents and not Rect2(Vector2.ZERO,ancestor.size).has_point(ancestor.get_global_transform_with_canvas().affine_inverse()*point): return false
+		ancestor=ancestor.get_parent()
+	return get_viewport().get_visible_rect().has_point(point)
+
+func is_map() -> bool:
+	return is_instance_valid(plot) and plot.get("spec") is Dictionary and str(plot.spec.get("type","")) in ["choropleth","cartogram","symbol_map","flow_map"]

@@ -6,6 +6,7 @@ static func make(code: String, details: Variant = {}, http_status: int = 0) -> D
 	var message := L.text("Инструмент не смог выполнить действие. Проверьте причину и текущее состояние.")
 	var retryable := false
 	if code == "cancelled": category = "cancelled"; message = L.text("Запрос остановлен.")
+	elif code == "tools.disabled_by_player": category = "permission"; message = L.text("Инструмент выключен игроком в настройках Харнеса.")
 	elif code == "vision_input_disabled": category = "permission"; message = L.text("Передача изображений выключена для этой модели. Включите профиль и «Изображения на вход» в тонкой настройке.")
 	elif code == "vision_unsupported_transport": category = "provider"; message = L.text("Этот формат API пока не поддерживает передачу снимков. Поддерживаются Chat Completions, Responses, Messages и Gemini.")
 	elif code == "images.not_configured": category = "configuration"; message = L.text("Генератор изображений не настроен. Откройте Настройки → Нейросеть → Генерация фото.")

@@ -2,6 +2,7 @@ extends RefCounted
 ## Discovery changes schema exposure only; the original grants remain authoritative.
 const CORE := ["tools.groups", "tools.load"]
 const INFO := {
+	"creation":["Player-reviewed content","Voxel objects, icons, resources, panels, warp routes and artificial surfaces with native territories. Proposals only; player Apply button required, no apply tool."],
 	"charts":["Charts and tables","Visualization schemas, datasets, transformations and statistics."],
 	"maps":["Maps and provinces","Land, water and mod map layers; province observations."],
 	"analytics":["Analytics and mod data","Discover and page installed-mod data sources; resource history."],
@@ -38,7 +39,7 @@ static func group_for(name: String) -> String:
 static func summaries(catalogue: Array, enabled: Variant) -> Array:
 	var counts: Dictionary = {}
 	for row: Dictionary in catalogue:
-		if row.name in CORE or row.name not in enabled or not row.get("available",true): continue
+		if row.name in CORE or row.name not in enabled or not row.get("available",true) or not row.get("enabled",true): continue
 		var id := group_for(row.name)
 		counts[id] = int(counts.get(id,0))+1
 	var result: Array = []
@@ -79,5 +80,5 @@ static func execute(catalogue: Array, scope: Dictionary, name: String, arguments
 		if id not in scope.loaded_tool_groups: scope.loaded_tool_groups.append(id)
 	var names: Array = []
 	for row: Dictionary in catalogue:
-		if row.name in scope.get("enabled_tools",[]) and row.get("available",true) and group_for(row.name) in requested: names.append(row.name)
+		if row.name in scope.get("enabled_tools",[]) and row.get("available",true) and row.get("enabled",true) and group_for(row.name) in requested: names.append(row.name)
 	return {"ok":true,"result":{"loaded_groups":scope.loaded_tool_groups.duplicate(),"tools":names,"schemas_available":"next_request","permissions_changed":false}}

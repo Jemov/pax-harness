@@ -17,6 +17,8 @@ const UiPanels = preload("res://mods/pax_harness/src/ui/game/ui_panels.gd")
 const ChartCatalogue = preload("res://mods/pax_harness/src/visualization/chart_catalogue.gd")
 const Space = preload("res://mods/pax_harness/src/runtime/tools/space_tools.gd")
 const Groups = preload("res://mods/pax_harness/src/runtime/tools/tool_groups.gd")
+const Permissions = preload("res://mods/pax_harness/src/runtime/tools/tool_permissions.gd")
+const Creation = preload("res://mods/pax_harness/src/creation/creation_policy.gd")
 var guard: RefCounted = ReadGuard.new()
 var _game: RefCounted
 var _owner: Node
@@ -31,17 +33,18 @@ func setup(game: RefCounted, owner_mod: Node = null, world_generation: Variant =
 	_generation = world_generation if world_generation != null else Data.property(owner_mod,"_source_generation")
 
 
-func catalogue() -> Array:
+func catalogue(include_unavailable_vision: bool = false) -> Array:
 	var result: Array = []
 	for definition: Dictionary in _definitions():
-		if definition.name == "ui.screenshot" and not _vision_enabled(): continue
+		if definition.name == "ui.screenshot" and not _vision_enabled() and not include_unavailable_vision: continue
 		var row: Dictionary = definition.duplicate(true)
+		row["enabled"] = Permissions.allowed(_owner,row.name)
 		row["available"] = _active() and _available(row)
 		row["reason"] = "" if row.available else ("inactive_world" if not _active() else "required_native_capability_unavailable")
 		row["channels"] = "*"
 		row["package_id"] = _package(row.name)
 		row["group_id"] = Groups.group_for(row.name)
-		row["read_only"] = not row.mutates_world and row.name not in ["chat.send","prompts.update","prompts.patch","plan.update","instructions.update","analysis.delegate","ui.open","images.generate"]
+		row["read_only"] = not row.mutates_world and row.name not in ["chat.send","prompts.update","prompts.patch","plan.update","instructions.update","analysis.delegate","ui.open","images.generate","creation.propose"]
 		row["result_schema"] = {"type":"object","description":"Actual observation or execution receipt; fields are described by after_state."}
 		result.append(row)
 	return result
@@ -52,6 +55,7 @@ func validate_call(name: String, arguments: Variant, enabled: Variant) -> Dictio
 	var definition: Dictionary = _find(name)
 	if definition.is_empty(): errors.append("tools.unknown_tool")
 	if not (enabled is Array or enabled is PackedStringArray) or name not in enabled: errors.append("tools.not_enabled")
+	if not Permissions.allowed(_owner,name): errors.append("tools.disabled_by_player")
 	if not Data.plain(arguments): errors.append("tools.invalid_json_arguments")
 	if errors.is_empty():
 		var checked: Dictionary = Validation.validate(JSON.stringify(arguments),definition.arguments_schema)
@@ -86,6 +90,7 @@ func dispatch(call: Dictionary, scope: Dictionary) -> Dictionary:
 	if not guarded.get("ok",false): return complete(call,guarded)
 	var executed: Dictionary
 	if name in Groups.CORE: executed = Groups.execute(catalogue(),scope,name,checked.arguments)
+	elif name.begins_with("creation."): executed = _owner._creations.execute(name,checked.arguments,scope)
 	elif name.begins_with("images."):
 		var image_result: Dictionary = _owner.image_tool(name,checked.arguments,scope)
 		if image_result.has("pending"): return image_result
@@ -107,7 +112,7 @@ func dispatch(call: Dictionary, scope: Dictionary) -> Dictionary:
 		if is_instance_valid(_owner) and _owner.has_method("map_provider_tool"): executed = _owner.map_provider_tool(name,checked.arguments)
 		else: executed = ChartMap.execute(_game,checked.arguments) if name == "charts.map" else {"ok":true,"result":{"sources":[]}}
 	elif name.begins_with("datasets.") or name == "statistics.calculate": executed = Datasets.execute(name,checked.arguments,scope.get("receipts",[]))
-	elif name.begins_with("space.") or name == "navigation.enter_system": executed = Space.execute(_game,name,checked.arguments,_owner)
+	elif name.begins_with("space.") or name in ["navigation.enter_system","navigation.open_surface"]: executed = Space.execute(_game,name,checked.arguments,_owner)
 	elif name == "analytics.read": executed = ChartData.execute(_game,checked.arguments)
 	elif name in ["analytics.sources","analytics.query"]: executed = _owner.analytics_tool(name,checked.arguments)
 	else: executed = Native.execute(_game,name,checked.arguments) if native else Public.execute(_game,name,checked.arguments)
@@ -139,7 +144,8 @@ func _vision_enabled() -> bool:
 func _available(row: Dictionary) -> bool:
 	var name: String = str(row.name)
 	if name in Groups.CORE: return true
-	if name.begins_with("space.") or name == "navigation.enter_system": return Space.available(_game,name)
+	if name.begins_with("creation."): return is_instance_valid(_owner) and is_instance_valid(Data.property(_owner,"_creations"))
+	if name.begins_with("space.") or name in ["navigation.enter_system","navigation.open_surface"]: return Space.available(_game,name)
 	if name.begins_with("images."): return is_instance_valid(_owner) and _owner.has_method("image_tool")
 	if name.begins_with("ui."): return is_instance_valid(_owner) and _owner.has_method("ui_tool") and UiPanels.main_node(_game) != null and (name != "ui.screenshot" or _vision_enabled())
 	if name in ["charts.function","charts.describe","charts.map_sources","datasets.transform","datasets.read","datasets.chart","statistics.calculate"]: return true
@@ -210,8 +216,10 @@ static func _definitions() -> Array:
 	var chart_parameters: Dictionary = {"coefficients":{"type":"array","minItems":1,"maxItems":6,"items":_number()},"a":_number(),"b":_number(),"c":_number(),"d":_number(),"L":_number(),"k":_number(),"x0":_number()}
 	var person_fields: Dictionary = {"name":_text(),"role":prose,"backstory":prose,"personality":prose,"age":_number(1,1000000),"occupation":prose,"wants":prose}
 	var steps: Dictionary = {"type":"array","minItems":1,"maxItems":30,"items":_object({"id":_text(80),"text":_text(1000),"status":{"type":"string","enum":["pending","in_progress","done","blocked"]},"evidence":{"type":"string","maxLength":2000}},["id","text","status"])}
-	return Datasets.definitions()+UiPanels.definitions()+[
+	return Datasets.definitions()+UiPanels.definitions()+Creation.definitions()+[
 		_tool("tools.groups","List the permitted tool groups and their purposes without loading schemas or world data.",{},[],false,"Compact permitted-group catalogue."),
+		_tool("space.surface","Read whether an actual discovered body has a solid surface and an already-loaded province map. Never builds a map. Includes guidance for charts.map(include_water=true) and native map opening.",{"body":_text()},["body"],false,"Actual solid-surface and loaded-map status."),
+		_tool("navigation.open_surface","Only on player request: open/generate the native surface map of ONE discovered solid body. For a star/gas giant with an already approved artificial surface, opens that shell; otherwise no surface map exists. Map generation is a world change; it does not colonize, build or advance time.",{"body":_text()},["body"],true,"Native body map opened, with actual loaded province status."),
 		_tool("tools.load","Load full tool schemas for 1..4 relevant group IDs from the catalogue. They are advertised on the NEXT request. Select only needed groups; this never expands permissions or executes a game action.",{"groups":{"type":"array","minItems":1,"maxItems":4,"items":_text(64)}},["groups"],false,"Selected permitted groups; schemas on the next request."),
 		_tool("images.status","Read whether the game's currently configured native image generator is available. No image generation, no credentials, no model selection changes.",{},[],false,"Native image-generator availability metadata only."),
 		_tool("images.generate","Generate one image through the game's configured native image service when the player asks for an image. Prompt only; no paths, URLs, credentials or model overrides. Returns a saved generated-image reference, not screenshot pixels or base64 text.",{"prompt":_text(4000)},["prompt"],false,"One actual native generated-image artifact; do not claim an image exists on failure."),
@@ -240,7 +248,7 @@ static func _definitions() -> Array:
 		_tool("resources.history","Read actual retained country resource trends and ready-to-display LINE charts. Default food/water/materials. Choose up to 4 canonical resources, limit 2..60 newest points, optional since_day/until_day for older ranges. curve=smooth gives shape-preserving nonlinear interpolation with original observation markers. scope=country is the DEFAULT and includes native statistics, even if body is supplied. Only explicit scope=colony plus body filters to colony mod observations. For our country keep country scope. Lists available_resources with point counts, actual uneven elapsed-day x, and coverage gaps. Display returned charts as pax-chart blocks; never invent absent historical points.",{"scope":{"type":"string","enum":["country","colony"]},"body":body,"resources":{"type":"array","minItems":1,"maxItems":4,"items":{"type":"string","enum":ResourceHistory.NAMES.keys()}},"limit":{"type":"integer","minimum":2,"maximum":60},"since_day":{"type":"integer","minimum":0},"until_day":{"type":"integer","minimum":0},"curve":{"type":"string","enum":["linear","smooth"]}},[],false,"Partial retained actual observations; ready line charts, missing history explicit."),
 		_tool("analytics.read","Read actual analytical data on demand from the home country's loaded economy and map: enterprises (individual records with type, province and development levels, plus samples grouped by type), provinces (area, enterprise count/levels), resource_flows (signed accounting components for Sankey/waterfall) statistics (partial retained country snapshots), or countries (only actually recorded population/organizational income fields). Paginate 1..200 rows. Levels are not wages or output; aggregate histories are not household or province-income microdata. Missing observations must not be invented.",{"section":{"type":"string","enum":["enterprises","provinces","resource_flows","statistics","countries"]},"body":body,"country":country,"limit":{"type":"integer","minimum":1,"maximum":200},"offset":{"type":"integer","minimum":0}},[],false,"Current save analytical rows and coverage. No world changes."),
 		_tool("charts.map_sources","Discover explicitly registered read-only mod map providers and their supported celestial bodies. Does not generate or load maps.",{},[],false,"Registered real-geometry providers only."),
-		_tool("charts.map","Build a ready choropleth or schematic equal-tile cartogram from REAL native home-body province contours. Select country (default ours), optionally 1..64 actual province_ids. metric=area_km2, enterprise_count, enterprise_levels, or custom with values keyed by province ID and a required source. Missing custom values are gray/unknown, never zero. Return chart unchanged; do not fabricate polygons. Only the loaded home body is used. Geometry is simplified and cached. For a registered mod body use explicit provider from charts.map_sources. To show seas, lakes and mod-added water, use include_water=true plus bounds=[west,south,east,north] in degrees; this reads the live water raster and nearby land provinces in any loaded scenario. This coverage mode is choropleth only and carries no economic metric. For named mod features discover analytics.sources/query, then provider plus feature_ids. Bounds are a viewport, not a fabricated sea boundary.",{"provider":_text(80),"include_water":{"type":"boolean"},"bounds":{"type":"array","minItems":4,"maxItems":4,"items":_number()},"feature_ids":{"type":"array","minItems":1,"maxItems":16,"items":_text(80)},"body":body,"country":country,"type":{"type":"string","enum":["choropleth","cartogram","symbol_map","flow_map"]},"province_ids":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"integer","minimum":1,"maximum":250000}},"metric":{"type":"string","enum":["area_km2","enterprise_count","enterprise_levels","custom"]},"values":{"type":"object","additionalProperties":_number()},"title":_text(500),"source":_text(500),"unit":{"type":"string","maxLength":40}},[],false,"Real simplified home-map geometry and observed metric, or explicitly sourced custom values. Pure presentation."),
+		_tool("charts.map","Build a ready choropleth or schematic equal-tile cartogram from REAL native province contours of an already-loaded solid body. Select country (default ours), optionally 1..64 actual province_ids. metric=area_km2, enterprise_count, enterprise_levels, or custom with values keyed by province ID and a required source. Missing custom values are gray/unknown, never zero. Return chart unchanged; do not fabricate polygons. Any already-loaded solid body is supported, including mod bodies and approved artificial surfaces. Use charts.map_sources or space.surface to discover; navigation.open_surface opens/generates a requested body map. On non-home bodies, omitting country selects all provinces; explicit country filters owners. Geometry is simplified and cached. For a registered mod body use explicit provider from charts.map_sources. To show seas, lakes and mod-added water, use include_water=true plus bounds=[west,south,east,north] in degrees; this reads the live water raster and nearby land provinces in any loaded scenario. This coverage mode is choropleth only and carries no economic metric. For named mod features discover analytics.sources/query, then provider plus feature_ids. Bounds are a viewport, not a fabricated sea boundary.",{"provider":_text(80),"include_water":{"type":"boolean"},"bounds":{"type":"array","minItems":4,"maxItems":4,"items":_number()},"feature_ids":{"type":"array","minItems":1,"maxItems":16,"items":_text(80)},"body":body,"country":country,"type":{"type":"string","enum":["choropleth","cartogram","symbol_map","flow_map"]},"province_ids":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"integer","minimum":1,"maximum":250000}},"metric":{"type":"string","enum":["area_km2","enterprise_count","enterprise_levels","custom"]},"values":{"type":"object","additionalProperties":_number()},"title":_text(500),"source":_text(500),"unit":{"type":"string","maxLength":40}},[],false,"Real simplified home-map geometry and observed metric, or explicitly sourced custom values. Pure presentation."),
 		_tool("charts.function","Calculate y=f(x) as a mathematical/scenario graph. Supply either x (2..241 increasing values) OR range={min,max,samples:121}; samples up to 241. Functions: parabola=a*(x-x0)^2+c; hyperbola=a/(x-x0)+c; sine/cosine/tangent=a*trig(b*x+c)+d; polynomial=sum(coefficients[i]*x^i); power=a*x^b+c; exponential=a*exp(b*x)+c; logarithmic=a*ln(x)+b; logistic=L/(1+exp(-k*(x-x0))). function=formula accepts formula such as sin(x)*exp(-0.1*x), (x^2+1)/(x-2), sqrt(1-x^2), log(x,10). Grammar: numbers, x, parameters a,b,c,d,L,k,x0, pi,e; + - * / ^ ** and parentheses; sin cos tan asin acos atan atan2 sinh cosh tanh exp ln log log10 log2 sqrt abs pow min max clamp. No scripts, properties, methods or arbitrary execution. Undefined points are skipped; discontinuities return breaks. Display returned chart unchanged. Read actual game inputs for economic scenarios and state assumptions.",{"function":{"type":"string","enum":["parabola","hyperbola","sine","cosine","tangent","polynomial","power","exponential","logarithmic","logistic","formula"]},"formula":_text(1024),"x":{"type":"array","minItems":2,"maxItems":241,"items":_number(-1.0e9,1.0e9)},"range":_object({"min":_number(-1.0e9,1.0e9),"max":_number(-1.0e9,1.0e9),"samples":{"type":"integer","minimum":2,"maximum":241}},["min","max"]),"parameters":_object(chart_parameters),"title":_text(500),"x_label":_text(80),"y_label":_text(80),"unit":{"type":"string","maxLength":40},"source":_text(500),"curve":{"type":"string","enum":["linear","smooth"]}},["function","title","x_label","y_label","source"],false,"Computed curve; omitted undefined points and breaks are explicit. Never observed history unless supplied from real game observations."),
 		_tool("resources.add","Add/subtract a registered stock quantity on an existing colony. Native zero clamp is reported. Does not construct an enterprise or change a grid formula.",{"body":body,"resource":_text(),"amount":_number()},["body","resource","amount"],true,"Before/after stock and actual delta, not a forecast."),
 		_tool("money.read","Read the current home-body treasury.",{},[],false,"Actual money value."),

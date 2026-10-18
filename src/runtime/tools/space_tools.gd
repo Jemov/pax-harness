@@ -4,6 +4,7 @@ const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 
 static func available(game: Object, name: String) -> bool:
+	if name in ["space.surface","navigation.open_surface"]: return is_instance_valid(game) and game.has_method("body_names") and game.has_method("body") and game.has_method("scene_root")
 	var methods: Array = ["body_names","body","body_system","galaxies","galaxy","charted_stars"]
 	if name == "navigation.enter_system": methods += ["chart_star","enter_star","charted_stars","system_bodies","focused_body","secrets_found"]
 	return is_instance_valid(game) and methods.all(func(method: String): return game.has_method(method))
@@ -31,6 +32,7 @@ static func matches(query: String, names: Array, allow_suffix: bool = false) -> 
 
 static func execute(game: RefCounted, name: String, args: Dictionary, owner: Node) -> Dictionary:
 	if not available(game,name): return Data.failed("space.public_api_unavailable")
+	if name in ["space.surface","navigation.open_surface"]: return surface(game,args,name=="navigation.open_surface")
 	if name == "space.rules": return rules(game,args,owner)
 	if name == "navigation.enter_system": return enter(game,args)
 	var query: String = str(args.get("query","")); var rows: Array = []
@@ -38,8 +40,10 @@ static func execute(game: RefCounted, name: String, args: Dictionary, owner: Nod
 	if scope != "catalogue":
 		for body_name: String in game.body_names():
 			var body: Dictionary = game.body(body_name)
-			if not body.get("open",false) or not matches(query,[body_name]): continue
-			rows.append({"kind":"loaded_body","body":body_name,"body_kind":body.get("genus",""),"system":game.body_system(body_name),"discovered":true,"focus_tool":"navigation.focus"})
+			var aliases: Array=[body_name,str(body.get("harness_surface_parent",""))]
+			if body.get("harness_surface_names") is Dictionary: aliases.append_array(body.harness_surface_names.values())
+			if not body.get("open",false) or not matches(query,aliases): continue
+			rows.append({"kind":"loaded_body","body":body_name,"body_kind":body.get("genus",""),"system":game.body_system(body_name),"discovered":true,"focus_tool":"navigation.focus","names":body.get("harness_surface_names",{}),"artificial_parent":body.get("harness_surface_parent","")})
 	var galaxies: Array = Array(game.galaxies())
 	var galaxy_key: String = str(args.get("galaxy",galaxies[0] if not galaxies.is_empty() else ""))
 	if galaxy_key != "" and galaxy_key not in galaxies: return Data.failed("space.unknown_galaxy")
@@ -58,6 +62,25 @@ static func execute(game: RefCounted, name: String, args: Dictionary, owner: Nod
 	var offset: int = int(args.get("offset",0)); var limit: int = int(args.get("limit",20))
 	var selected: Array = rows.slice(offset,offset+limit)
 	return Data.success({"rows":selected,"total":rows.size(),"next_offset":offset+selected.size(),"has_more":offset+selected.size()<rows.size(),"galaxy":galaxy_key,"available_galaxies":galaxies,"available_star_classes":star_classes,"source":"Public loaded-body and deterministic galaxy catalogues of the current game, including installed mod content. No system generated or time advanced."})
+
+static func surface(game: RefCounted, args: Dictionary, open_map: bool) -> Dictionary:
+	var name: String=str(args.body)
+	if name not in game.body_names() or not game.body(name).get("open",false): return Data.failed("tools.unknown_or_hidden_body")
+	var original: String=name
+	var shells: Array=[]
+	for key: String in game.body_names():
+		var candidate: Dictionary=game.body(key)
+		if candidate.get("harness_surface_parent")==name: shells.append({"body":key,"name":candidate.get("harness_surface_names",{}),"solid_surface":true})
+	if not shells.is_empty(): name=str(shells[0].body)
+	var kind: String=str(game.body(name).get("genus",""))
+	var solid: bool=kind not in ["star","gas","black_hole","white_dwarf","neutron"]
+	if open_map and not solid: return Data.failed("space.no_solid_surface",{"body":name,"artificial_surface_project":"creation.propose kind=surface, only on explicit player request and after player Apply"})
+	if open_map:
+		var root: Node=game.scene_root()
+		if not root.has_method("galaxy_view"): return Data.failed("space.map_navigation_unavailable")
+		root.galaxy_view().open_body_map(Array(game.body_names()).find(name))
+	var loaded: bool=name==game.home_body() or name in Sources.native_loaded_maps(game)
+	return Data.success({"body":name,"requested_body":original,"original_kind":game.body(original).get("genus",""),"kind":kind,"solid_surface":solid,"artificial_surfaces":shells,"artificial_parent":game.body(name).get("harness_surface_parent",""),"map_loaded":loaded,"province_count":game.province_count(name) if loaded and solid else null,"map_open_requested":open_map,"surface_tool":"charts.map","load_chart_tools":{"groups":["maps"]},"map_arguments":{"body":name},"water_supported":solid and loaded,"note":"Natural solid bodies and approved artificial rock shells have native province maps. Original stars/gas giants retain their kinds. Opening a parent with an approved shell opens that shell. No colonization or population is granted. Use the returned body ID in charts.map; include_water=true supports water coverage after map_loaded=true."})
 
 static func enter(game: RefCounted, args: Dictionary) -> Dictionary:
 	var key: String = str(args.get("star_key","")); var parts: PackedStringArray = key.split(":")

@@ -12,9 +12,12 @@ static func normalize(block: Dictionary) -> Dictionary:
 			rows.append(input.duplicate(true)); width = maxi(width,input.size())
 	width = maxi(1,width)
 	var extra: int = maxi(int(block.get("extra_columns",0)),maxi(0,width-headers.size()))
-	while headers.size() < width: headers.append(L.text("Столбец ")+str(headers.size()+1))
+	var generated: Array = block.get("generated_headers",[]).duplicate()
+	while headers.size() < width:
+		generated.append(headers.size()); headers.append(L.text("Столбец ")+str(headers.size()+1))
 	for column: int in width:
-		if str(headers[column]).strip_edges().is_empty(): headers[column] = L.text("Столбец ")+str(column+1)
+		if str(headers[column]).strip_edges().is_empty():
+			generated.append(column); headers[column] = L.text("Столбец ")+str(column+1)
 	for row: Array in rows:
 		while row.size() < width: row.append("")
 	var align: Array = block.get("alignments",[]).duplicate()
@@ -28,10 +31,10 @@ static func normalize(block: Dictionary) -> Dictionary:
 			if number(row[column]) == null: all_numbers = false; break
 		numeric.append(all_numbers and count > 0)
 		if align[column] not in ["left","center","right"]: align[column] = "right" if numeric[column] else "left"
-	return {"headers":headers,"rows":rows,"alignments":align,"numeric":numeric,"extra_columns":extra,"title":str(block.get("title","")),"source":str(block.get("source",""))}
+	return {"headers":headers,"rows":rows,"alignments":align,"numeric":numeric,"extra_columns":extra,"generated_headers":generated,"title":str(block.get("title","")),"source":str(block.get("source",""))}
 
 static func missing(value: Variant) -> bool:
-	return value == null or str(value).strip_edges().to_lower() in ["","—","–","-","n/a","null",L.text("нет данных")]
+	return value == null or str(value).strip_edges().to_lower() in ["","—","–","-","n/a","null","нет данных","no data"]
 
 static func number(value: Variant) -> Variant:
 	if value is int or value is float: return float(value) if is_finite(float(value)) else null

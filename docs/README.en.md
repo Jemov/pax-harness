@@ -1,6 +1,6 @@
 # Pax Harness
 
-An in-game assistant workspace for **Pax Universe 0.31.4**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
+An in-game assistant workspace for **Pax Universe 0.31.5**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
 
 [Русское описание](../README.md)
 
@@ -8,7 +8,7 @@ An in-game assistant workspace for **Pax Universe 0.31.4**. Use the model and AP
 
 **Official Workshop:** open Workshop in the launcher, find Pax Harness, install it and enable it under Mods.
 
-**GitHub:** close the game, download `pax_harness-1.12.0.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
+**GitHub:** close the game, download `pax_harness-1.12.1.zip` from Releases and place the complete ZIP in the user mods folder without extracting it. Open Launcher → Mods → Mods folder to locate it; on Windows it is normally `%APPDATA%\Pax Universe\mods`. Enable the mod and approve its code using the game's normal permission prompt if requested. Choose a conversational model in the game, load or start a campaign, and open the normal AI assistant button.
 
 Keep only one installed copy. Close the game before manually replacing an older ZIP or folder. Workshop installations update through the launcher. Conversations belong to campaign saves and are not stored in the installation archive.
 
@@ -62,6 +62,6 @@ To let a vision-capable model inspect the game, enable its profile and **Image i
 
 ## Languages and files
 
-The interface is available in Russian and English and follows the game's language, including open mod windows. Player messages, model answers, custom names and entered data remain unchanged. Internal API identifiers remain stable.
+The interface is available in Russian and English and follows the game's language, including open mod windows. Other game languages use English. Player messages, model answers, custom names and entered data remain unchanged. Internal API identifiers remain stable.
 
 Runtime entry: `src/main.gd`. Code is organized under `src/`, translations under `data/lang/`, and project screenshots under `media/`. Release screenshots are separate assets; the installation ZIP does not need the promotional gallery.

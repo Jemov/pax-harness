@@ -91,7 +91,7 @@ func _apply() -> void:
 	var filtered: Dictionary = Filters.apply(original,query.text,hidden,minimum.value if minimum != null else 0)
 	if bins != null and not filtered.is_empty(): filtered.bins = int(bins.value)
 	note.visible = query.text != "" or not hidden.is_empty() or (minimum != null and minimum.value > 0)
-	note.text = L.text("Показана часть данных; исходные значения сохранены.")+(L.text(" Доли рассчитаны по видимым категориям.") if original.type in ["pie","donut","treemap","sunburst","icicle"] else "")
+	L.bind(note,"text",["Показана часть данных; исходные значения сохранены."," Доли рассчитаны по видимым категориям." if original.type in ["pie","donut","treemap","sunburst","icicle"] else ""])
 	owner_view.apply_display(filtered)
 func reset() -> void:
 	query.set_block_signals(true); query.text = ""; query.set_block_signals(false)

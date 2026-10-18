@@ -14,7 +14,8 @@ func setup(value: Node, owner: Node) -> void:
 	service = value; owner_mod = owner; size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation",12)
 	var status: Dictionary = owner.image_tool("images.status",{},{}).get("result",{}) if owner.has_method("image_tool") else {}
-	add_child(_label(L.text("Генератор игры: ")+str(status.get("service",L.text("не настроен")))+" · "+str(status.get("model",""))))
+	var status_label := _label("")
+	L.bind(status_label,"text",["Генератор игры: ",{"value":status.service} if status.has("service") else "не настроен",{"value":" · "+str(status.get("model",""))}]); add_child(status_label)
 	var native := Button.new(); native.text = L.text("Настроить в игре")
 	native.pressed.connect(func():
 		if owner_mod.has_method("ui_tool"):
@@ -68,7 +69,7 @@ func _parse() -> void:
 	if prior is Dictionary:
 		for index: int in selected.size():
 			if selected[index].node == prior.get("node") and selected[index].input == prior.get("input"): prompt_field.select(index)
-	feedback.text = L.text("Узлов: %d. Изменяется только выбранное поле описания.") % _graph.size() if selected.size() > 0 else L.text("Не найдено строковое поле text/prompt. Нужен экспорт API workflow.")
+	L.bind(feedback,"text",[{"format":"Узлов: %d. Изменяется только выбранное поле описания.","args":[_graph.size()]}] if selected.size() > 0 else ["Не найдено строковое поле text/prompt. Нужен экспорт API workflow."])
 func _apply() -> void:
 	var selected: Variant = prompt_field.get_selected_metadata() if prompt_field.selected >= 0 else null
 	if not selected is Dictionary: feedback.text = L.text("Выберите точное поле описания."); return

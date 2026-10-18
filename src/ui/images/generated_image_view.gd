@@ -14,7 +14,7 @@ func setup(service: Node, descriptor: Dictionary) -> void:
 	_picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_picture.size_flags_horizontal = Control.SIZE_EXPAND_FILL; add_child(_picture)
 	resized.connect(_resize_image); _resize_image()
-	var caption := Label.new(); caption.text = L.text("Создано генератором игры · %d × %d") % [resolved.descriptor.width,resolved.descriptor.height]
+	var caption := Label.new(); L.bind(caption,"text",[{"format":"Создано генератором игры · %d × %d","args":[resolved.descriptor.width,resolved.descriptor.height]}])
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(caption)
 
 func _resize_image() -> void:

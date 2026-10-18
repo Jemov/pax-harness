@@ -47,7 +47,8 @@ func setup(ui: Node, block: Dictionary) -> void:
 	if not spec.title.is_empty():
 		var title := Style.label(spec.title,16); title.set_meta("mod_user_text",true); layout.add_child(title)
 	if spec.extra_columns > 0:
-		var warning := Style.label(L.text("В строках есть дополнительные значения. Добавлено столбцов: ")+str(spec.extra_columns)+L.text(" — все данные сохранены."),12,Color("#e6bd7a"))
+		var warning := Style.label("",12,Color("#e6bd7a"))
+		L.bind(warning,"text",["В строках есть дополнительные значения. Добавлено столбцов: ",{"value":spec.extra_columns}," — все данные сохранены."])
 		warning.name = "TableWarning"; layout.add_child(warning)
 	var tools := HFlowContainer.new(); tools.add_theme_constant_override("h_separation",8); layout.add_child(tools)
 	filter_input = LineEdit.new(); filter_input.name = "TableFilter"; filter_input.placeholder_text = L.text("Поиск по таблице"); filter_input.clear_button_enabled = true; filter_input.custom_minimum_size.x = 165
@@ -77,7 +78,9 @@ func setup(ui: Node, block: Dictionary) -> void:
 	counter = Style.label("",12,Color("#9ca7b6")); counter.autowrap_mode = TextServer.AUTOWRAP_OFF
 	counter.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; counter.size_flags_vertical = Control.SIZE_SHRINK_CENTER; pager.add_child(counter)
 	next_button = _button("→",func(): page += 1; _refresh()); next_button.tooltip_text = L.text("Следующие 50 строк"); pager.add_child(next_button)
-	if not spec.source.is_empty(): layout.add_child(Style.label(L.text("Источник: ")+spec.source,12,Color("#9ca7b6")))
+	if not spec.source.is_empty():
+		var source := Style.label("",12,Color("#9ca7b6"))
+		source.name = "TableSource"; L.bind(source,"text",["Источник: ",{"value":spec.source}]); layout.add_child(source)
 	_csv_panel = VBoxContainer.new(); _csv_panel.name = "TableCSVPanel"; _csv_panel.hide(); layout.add_child(_csv_panel)
 	_csv_panel.add_child(Style.label(L.text("CSV: все строки текущего результата поиска, с учётом сортировки"),12))
 	csv_text = TextEdit.new(); csv_text.name = "TableCSVText"; csv_text.editable = false; csv_text.custom_minimum_size.y = 180; csv_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY; _csv_panel.add_child(csv_text)
@@ -121,7 +124,11 @@ func _cell(value: Variant, column: int, header: bool = false) -> PanelContainer:
 	if header:
 		var button := Button.new(); button.text = Markdown.plain_inline(text)+( (" ▼" if sort_descending else " ▲") if sort_column == column else "")
 		button.set_meta("mod_user_text",true); button.alignment = alignment; button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; button.custom_minimum_size.x = _widths[column]-20
-		button.tooltip_text = Markdown.plain_inline(text)+L.text("\nСортировать по столбцу"); button.pressed.connect(_sort.bind(column)); Style.link(button); cell.add_child(button)
+		L.bind(button,"tooltip_text",[{"value":Markdown.plain_inline(text)},"\nСортировать по столбцу"]); button.pressed.connect(_sort.bind(column)); Style.link(button); cell.add_child(button)
+		if column in spec.get("generated_headers",[]):
+			var parts: Array = ["Столбец ",{"value":column+1}]
+			L.bind(button,"text",parts+[{"value":(" ▼" if sort_descending else " ▲") if sort_column == column else ""}])
+			L.bind(button,"tooltip_text",parts+["\nСортировать по столбцу"])
 	elif text.contains("**") or text.contains("`") or text.contains("](") or text.contains("~~"):
 		var rich := RichTextLabel.new(); rich.bbcode_enabled = true; rich.fit_content = true; rich.scroll_active = false; rich.selection_enabled = true
 		rich.custom_minimum_size.x = _widths[column]-20; rich.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -148,7 +155,9 @@ func _refresh() -> void:
 	var first: int = page*Table.PAGE_SIZE; var last: int = mini(first+Table.PAGE_SIZE,order.size())
 	for index: int in range(first,last):
 		for column: int in spec.headers.size(): grid.add_child(_cell(spec.rows[order[index]][column],column))
-	counter.text = (L.text("0 строк") if order.is_empty() else str(first+1)+"–"+str(last)+L.text(" из ")+str(order.size()))+(L.text(" · всего ")+str(spec.rows.size()) if order.size() != spec.rows.size() else "")
+	var count_parts: Array = ["0 строк"] if order.is_empty() else [{"value":str(first+1)+"–"+str(last)}," из ",{"value":order.size()}]
+	if order.size() != spec.rows.size(): count_parts.append_array([" · всего ",{"value":spec.rows.size()}])
+	L.bind(counter,"text",count_parts)
 	previous_button.disabled = page <= 0; next_button.disabled = last >= order.size()
 	data_scroll.scroll_vertical = 0
 	data_scroll.custom_minimum_size.y = minf(420,maxf(42,(last-first)*39.0))

@@ -174,6 +174,7 @@ func setup(mod: Node, game_main: Node) -> void:
 	delete_dialog = ConfirmationDialog.new()
 	delete_dialog.title = L.text("Удалить чат?")
 	delete_dialog.dialog_text = L.text("Переписка этого чата будет удалена из партии.")
+	delete_dialog.get_label().set_meta("mod_user_text",true)
 	delete_dialog.ok_button_text = L.text("Удалить")
 	delete_dialog.cancel_button_text = L.text("Отмена")
 	delete_dialog.confirmed.connect(func(): owner_mod.chat_delete(_delete_id))
@@ -424,7 +425,7 @@ func _ask_delete(chat_id: String = "") -> void:
 	if store.running(_delete_id):
 		status.text = L.text("Сначала дождитесь ответа или нажмите «Стоп».")
 		return
-	delete_dialog.dialog_text = L.text("Удалить чат «")+str(store.find(_delete_id).title)+L.text("» навсегда?")
+	L.bind(delete_dialog,"dialog_text",["Удалить чат «",{"value":store.find(_delete_id).title},"» навсегда?"])
 	delete_dialog.popup_centered()
 
 func _schedule_refresh() -> void:

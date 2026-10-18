@@ -118,10 +118,10 @@ func _build_display(spec: Dictionary) -> void:
 			legend.add_child(item)
 		_body.add_child(legend)
 	var source := Label.new()
-	var source_name: String = str(spec.source)
-	for pair: Array in [["orders.failed",L.text("Архив проваленных планов")],["history.read",L.text("История мира")],["resources.read",L.text("Запасы ресурсов")],["money.read",L.text("Казна")],["statistics",L.text("сохранённая статистика")]]:
-		source_name = source_name.replace(pair[0],pair[1])
-	source.text = L.text("Источник: ")+source_name
+	var aliases := {"orders.failed":"Архив проваленных планов","history.read":"История мира","resources.read":"Запасы ресурсов","money.read":"Казна","statistics":"сохранённая статистика"}
+	var source_parts: Array = ["Источник: "]
+	source_parts.append(aliases[spec.source] if aliases.has(spec.source) else {"value":spec.source})
+	L.bind(source,"text",source_parts)
 	source.set_meta("mod_user_text",true)
 	source.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	source.add_theme_font_size_override("font_size", 12)

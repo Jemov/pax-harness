@@ -1,4 +1,5 @@
 extends Node
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Layout = preload("res://mods/pax_harness/src/ui/chat/chat_layout.gd")
 const Icons = preload("res://mods/pax_harness/src/ui/components/chat_icons.gd")
 ## Move the same workspace between the game viewport and a native OS window.
@@ -20,15 +21,15 @@ func setup(value: Node, header: Control, handle: Control, buttons: HBoxContainer
 	viewport = ui.get_viewport()
 	header.gui_input.connect(_header_input)
 	handle.mouse_filter = Control.MOUSE_FILTER_STOP
-	handle.tooltip_text = "Перетащить окно · двойной щелчок — развернуть"
+	handle.tooltip_text = L.text("Перетащить окно · двойной щелчок — развернуть")
 	handle.gui_input.connect(_header_input)
-	maximize_button = Layout.icon_button(ui,"expand",toggle_maximize,"Развернуть")
+	maximize_button = Layout.icon_button(ui,"expand",toggle_maximize,L.text("Развернуть"))
 	maximize_button.name = "MaximizeChats"
-	maximize_button.tooltip_text = "Развернуть"
+	maximize_button.tooltip_text = L.text("Развернуть")
 	buttons.add_child(maximize_button)
-	detach_button = detach_control if detach_control != null else ui._button("Отдельное окно",toggle_external)
+	detach_button = detach_control if detach_control != null else ui._button(L.text("Отдельное окно"),toggle_external)
 	detach_button.name = "DetachChats"
-	detach_button.tooltip_text = "Открыть в отдельном окне"
+	detach_button.tooltip_text = L.text("Открыть в отдельном окне")
 	if detach_control == null: buttons.add_child(detach_button)
 	viewport.size_changed.connect(ui._fit)
 
@@ -46,7 +47,7 @@ func fit() -> void:
 		ui.surface.size = floating.size
 		move_to(floating.position)
 	maximize_button.icon = Icons.make("restore" if maximized else "expand")
-	maximize_button.tooltip_text = "Восстановить размер" if maximized else "Развернуть"
+	maximize_button.tooltip_text = L.text("Восстановить размер") if maximized else L.text("Развернуть")
 	ui.backdrop.visible = ui.surface.visible and not is_instance_valid(external)
 
 func move_to(point: Vector2) -> void:
@@ -112,9 +113,9 @@ func toggle_external() -> void:
 	viewport = external
 	viewport.size_changed.connect(ui._fit)
 	maximized = false
-	detach_button.text = "Вернуть в игру"
+	detach_button.text = L.text("Вернуть в игру")
 	detach_button.icon = Icons.make("return",ui.QUIET,16)
-	detach_button.tooltip_text = "Вернуть в игру"
+	detach_button.tooltip_text = L.text("Вернуть в игру")
 	external.show()
 	fit()
 	ui.input.grab_focus.call_deferred()
@@ -128,9 +129,9 @@ func return_to_game() -> void:
 	viewport = ui.get_viewport()
 	viewport.size_changed.connect(ui._fit)
 	maximized = false
-	detach_button.text = "Отдельное окно"
+	detach_button.text = L.text("Отдельное окно")
 	detach_button.icon = Icons.make("external",ui.QUIET,16)
-	detach_button.tooltip_text = "Открыть в отдельном окне"
+	detach_button.tooltip_text = L.text("Открыть в отдельном окне")
 	old.hide()
 	old.queue_free()
 	fit()

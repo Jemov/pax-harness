@@ -1,4 +1,5 @@
 extends Node
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Nonblocking transport for owned text requests (OpenAI SSE or complete Messages).
 const Parser = preload("res://mods/pax_harness/src/transport/chat_stream_parser.gd")
 const Failure = preload("res://mods/pax_harness/src/core/runtime_error.gd")
@@ -33,7 +34,7 @@ func start(provider: Node, destination: HTTPRequest, query: Array, channel: Stri
 	var tuned: Dictionary = owner_mod.prepare_generation_query(provider,prepared,channel) if owner_mod.has_method("prepare_generation_query") else {"ok":true,"query":prepared}
 	if not tuned.get("ok",false):
 		var failure: Dictionary = Failure.make(str(tuned.get("code","manual_generation_settings_invalid")),{"errors":tuned.get("errors",[])})
-		failure.message = "Запрос не отправлен: "+"; ".join(PackedStringArray(tuned.get("errors",[])))
+		failure.message = L.text("Запрос не отправлен: ")+"; ".join(PackedStringArray(tuned.get("errors",[])))
 		if owner_mod._router.has_method("stream_failure"): owner_mod._router.stream_failure(channel,failure)
 		provider._curl_answer.call_deferred(destination,400,JSON.stringify({"error":{"code":failure.code}}).to_utf8_buffer())
 		return true
@@ -318,7 +319,7 @@ func _report_error(channel: String, failure: Dictionary) -> void:
 		failure.details = {"retries":active[channel].attempt,"capability_repairs":active[channel].get("capability_repairs",0),"elapsed_ms":Time.get_ticks_msec()-int(active[channel].started)}
 		if not active[channel].get("manual_rejection",[]).is_empty():
 			failure.details["manual_parameters_rejected"] = active[channel].manual_rejection.duplicate()
-			failure.message = "API отклонил заданные вручную параметры: "+", ".join(PackedStringArray(active[channel].manual_rejection))+". Измените их в «Тонкой настройке». Ручные значения не удалены автоматически."
+			failure.message = L.text("API отклонил заданные вручную параметры: ")+", ".join(PackedStringArray(active[channel].manual_rejection))+L.text(". Измените их в «Тонкой настройке». Ручные значения не удалены автоматически.")
 	if owner_mod._router.has_method("stream_failure"): owner_mod._router.stream_failure(channel,failure)
 	else: owner_mod._router.stream_error(channel,str(failure.code))
 

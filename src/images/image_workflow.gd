@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Explicit player configuration only; model tools can replace one selected prompt string.
 const MAX_BYTES := 262144
 const MAX_NODES := 256
@@ -33,17 +34,17 @@ static func choices(graph: Dictionary) -> Array:
 	return result
 
 static func validate(graph: Dictionary, prompt_node: String = "", prompt_input: String = "text", enabled: bool = true) -> Dictionary:
-	if graph.is_empty() or graph.size() > MAX_NODES or not _data(graph,0,[0]) or JSON.stringify(graph).to_utf8_buffer().size() > MAX_BYTES: return {"ok":false,"code":"images.workflow_invalid","message":"Нужен API JSON workflow до 256 узлов и 256 КиБ, без ключей доступа."}
+	if graph.is_empty() or graph.size() > MAX_NODES or not _data(graph,0,[0]) or JSON.stringify(graph).to_utf8_buffer().size() > MAX_BYTES: return {"ok":false,"code":"images.workflow_invalid","message":L.text("Нужен API JSON workflow до 256 узлов и 256 КиБ, без ключей доступа.")}
 	for id: Variant in graph:
 		var node: Variant = graph[id]
-		if not id is String or RegEx.create_from_string("^[A-Za-z0-9_.:-]{1,64}$").search(id) == null or not node is Dictionary or not node.get("class_type") is String or node.class_type.is_empty() or node.class_type.length() > 160 or not node.get("inputs") is Dictionary: return {"ok":false,"code":"images.workflow_invalid","message":"Экспортируйте workflow в формате API: узлы с class_type и inputs."}
+		if not id is String or RegEx.create_from_string("^[A-Za-z0-9_.:-]{1,64}$").search(id) == null or not node is Dictionary or not node.get("class_type") is String or node.class_type.is_empty() or node.class_type.length() > 160 or not node.get("inputs") is Dictionary: return {"ok":false,"code":"images.workflow_invalid","message":L.text("Экспортируйте workflow в формате API: узлы с class_type и inputs.")}
 	var selected: String = prompt_node
 	var field: String = prompt_input
 	if selected == "":
 		var candidates: Array = choices(graph)
-		if candidates.size() != 1: return {"ok":false,"code":"images.workflow_prompt_ambiguous","message":"Выберите точный узел и поле положительного описания изображения."}
+		if candidates.size() != 1: return {"ok":false,"code":"images.workflow_prompt_ambiguous","message":L.text("Выберите точный узел и поле положительного описания изображения.")}
 		selected = candidates[0].node; field = candidates[0].input
-	if not graph.has(selected) or not graph[selected].inputs.get(field) is String: return {"ok":false,"code":"images.workflow_prompt_invalid","message":"В выбранном узле нужно существующее строковое поле описания."}
+	if not graph.has(selected) or not graph[selected].inputs.get(field) is String: return {"ok":false,"code":"images.workflow_prompt_invalid","message":L.text("В выбранном узле нужно существующее строковое поле описания.")}
 	return {"ok":true,"config":{"enabled":enabled,"graph":graph.duplicate(true),"prompt_node":selected,"prompt_input":field}}
 
 static func with_prompt(config: Dictionary, prompt: String) -> Dictionary:

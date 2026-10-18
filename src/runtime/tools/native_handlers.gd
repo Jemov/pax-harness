@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Reviewed stock-only fixed method bindings. Methods are never supplied by AI.
 const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
@@ -38,20 +39,20 @@ static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary
 		"characters.list":
 			var memory: Variant = Data.property(main,"память")
 			var contacts: Array = []
-			for row: Variant in memory.список("человек"):
-				if row is Dictionary and row.get("вид") == "человек" and row.get("имя") is String and memory.есть("человек",row.имя):
+			for row: Variant in memory.список(L.text("человек")):
+				if row is Dictionary and row.get("вид") == L.text("человек") and row.get("имя") is String and memory.есть(L.text("человек"),row.имя):
 					contacts.append({"name":row.имя,"header":PersonRecord.read(memory,row.имя)})
 			return Data.success({"contacts":contacts,"coverage":"native_contact_index_and_retained_headers"},{},{"authoritative":true,"contacts":contacts})
 		"characters.read", "characters.connect":
 			var memory: Variant = Data.property(main,"память")
-			if a.name != a.name.strip_edges() or not memory.есть("человек",a.name): return Data.failed("tools.character_not_found")
+			if a.name != a.name.strip_edges() or not memory.есть(L.text("человек"),a.name): return Data.failed("tools.character_not_found")
 			var header: Dictionary = PersonRecord.read(memory,a.name)
 			if name == "characters.read":
-				return Data.success({"name":a.name,"header":header,"selected_memory":str(memory.вспомнить("человек",a.name,"",400)),"memory_authoritative":false,"coverage":"native_recall_selection_only"},{},{"authoritative":true,"header":header})
+				return Data.success({"name":a.name,"header":header,"selected_memory":str(memory.вспомнить(L.text("человек"),a.name,"",400)),"memory_authoritative":false,"coverage":"native_recall_selection_only"},{},{"authoritative":true,"header":header})
 			var before: Dictionary = Data.fields(Data.property(main,"разговор_с"),["вид","имя","кто","тело"])
-			main._открыть_разговор("человек",a.name,str(header.get("кто","")))
+			main._открыть_разговор(L.text("человек"),a.name,str(header.get("кто","")))
 			var after: Dictionary = Data.fields(Data.property(main,"разговор_с"),["вид","имя","кто","тело"])
-			return Data.success({"name":a.name,"created":false,"reply_generated":false},{"authoritative":true,"conversation":before},{"authoritative":true,"conversation":after}) if after.get("вид") == "человек" and after.get("имя") == a.name else Data.failed("tools.native_contact_not_opened",before,after)
+			return Data.success({"name":a.name,"created":false,"reply_generated":false},{"authoritative":true,"conversation":before},{"authoritative":true,"conversation":after}) if after.get("вид") == L.text("человек") and after.get("имя") == a.name else Data.failed("tools.native_contact_not_opened",before,after)
 		"orders.read": return Data.success({"queue":_orders(main),"deferred":Data.clean(Data.property(main,"_отложенные_приказы"))})
 		"orders.submit":
 			if a.body not in game.colonies(): return Data.failed("tools.colony_not_found")

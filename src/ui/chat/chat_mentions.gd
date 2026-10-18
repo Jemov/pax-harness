@@ -1,4 +1,5 @@
 extends Node
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 var ui: Node
 var store: RefCounted
@@ -53,7 +54,7 @@ func sync() -> void:
 		panel.add_theme_stylebox_override("panel",Style.box(Color("#303238"),16,Color("#464950"),5))
 		chips.add_child(panel)
 		panel.add_child(row)
-		var label: Button = ui._button("@ "+str(target.get("title","Удалённый чат")),ui.owner_mod.chat_select.bind(id))
+		var label: Button = ui._button("@ "+str(target.get("title",L.text("Удалённый чат"))),ui.owner_mod.chat_select.bind(id))
 		label.clip_text = true
 		label.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -97,7 +98,7 @@ func update_picker() -> void:
 		ids = ["/compact"]
 		selected = 0
 		ui._clear(choices)
-		choices.add_child(ui._button("/compact  ·  Сжать контекст",choose.bind(0)))
+		choices.add_child(ui._button(L.text("/compact  ·  Сжать контекст"),choose.bind(0)))
 		picker.show()
 		position_picker.call_deferred()
 		return

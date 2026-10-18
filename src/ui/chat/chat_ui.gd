@@ -1,5 +1,7 @@
 extends CanvasLayer
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## In-game session browser and event-driven tool disclosures.
+const Preferences = preload("res://mods/pax_harness/src/ui/chat/chat_preferences.gd")
 const Markdown = preload("res://mods/pax_harness/src/ui/markdown/chat_markdown.gd")
 const Metrics = preload("res://mods/pax_harness/src/chat/chat_metrics.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
@@ -75,6 +77,7 @@ var scroll_motion: Node
 
 func setup(mod: Node, game_main: Node) -> void:
 	owner_mod = mod
+	set_meta("mod_i18n_scope","pax_harness")
 	store = mod.chat_store
 	main = game_main
 	native = main.ui.assistant_window
@@ -109,12 +112,12 @@ func setup(mod: Node, game_main: Node) -> void:
 	# Set up after the header so both pencils share the same styling.
 	agent_name = preload("res://mods/pax_harness/src/ui/chat/chat_agent_name.gd").new()
 	side_column.add_child(agent_name)
-	var new_chat := _button("＋  Новый чат",func(): owner_mod.chat_new())
+	var new_chat := _button(L.text("＋  Новый чат"),func(): owner_mod.chat_new())
 	new_chat.name = "NewChat"
 	side_column.add_child(new_chat)
 	search = LineEdit.new()
 	search.name = "SearchChats"
-	search.placeholder_text = "Найти чат"
+	search.placeholder_text = L.text("Найти чат")
 	search.text_changed.connect(func(_text: String): _render_sidebar())
 	side_column.add_child(search)
 	var list_scroll := ScrollContainer.new()
@@ -134,7 +137,7 @@ func setup(mod: Node, game_main: Node) -> void:
 	Layout.header(self,body,detach)
 	var instructions: Node = surface.find_child("Instructions",true,false)
 	if instructions != null:
-		var images_button: Button = Layout.icon_button(self,"image",_open_image_settings,"Генератор изображений")
+		var images_button: Button = Layout.icon_button(self,"image",_open_image_settings,L.text("Генератор изображений"))
 		images_button.name = "ImageGenerationSettings"; instructions.get_parent().add_child(images_button)
 		instructions.get_parent().move_child(images_button,instructions.get_index()+1)
 	agent_name.setup(self)
@@ -169,10 +172,10 @@ func setup(mod: Node, game_main: Node) -> void:
 	_stat_panel.minimum_size_changed.connect(_schedule_stat_fit)
 	_stat_panel.hide()
 	delete_dialog = ConfirmationDialog.new()
-	delete_dialog.title = "Удалить чат?"
-	delete_dialog.dialog_text = "Переписка этого чата будет удалена из партии."
-	delete_dialog.ok_button_text = "Удалить"
-	delete_dialog.cancel_button_text = "Отмена"
+	delete_dialog.title = L.text("Удалить чат?")
+	delete_dialog.dialog_text = L.text("Переписка этого чата будет удалена из партии.")
+	delete_dialog.ok_button_text = L.text("Удалить")
+	delete_dialog.cancel_button_text = L.text("Отмена")
 	delete_dialog.confirmed.connect(func(): owner_mod.chat_delete(_delete_id))
 	add_child(delete_dialog)
 	chat_menu = preload("res://mods/pax_harness/src/ui/chat/chat_menu.gd").new()
@@ -241,13 +244,14 @@ func _stat_label(text: String, size: int, color: Color) -> Label:
 
 func _rich(text: String, markdown: bool = true) -> RichTextLabel:
 	var node := RichTextLabel.new()
+	node.set_meta("mod_user_text",true)
 	node.bbcode_enabled = true
 	node.fit_content = true
 	node.scroll_active = false
 	node.selection_enabled = true
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	node.add_theme_font_size_override("normal_font_size",15)
+	node.add_theme_font_size_override("normal_font_size",int(Preferences.value(owner_mod,"dialog_font_size")))
 	node.add_theme_constant_override("line_separation",5)
 	node.text = Markdown.render(text) if markdown else Markdown.escape(text)
 	node.meta_clicked.connect(func(value: Variant):
@@ -331,6 +335,13 @@ func _input(event: InputEvent) -> void:
 	if is_instance_valid(surface) and surface.visible and chat_menu.handle_key(event):
 		get_viewport().set_input_as_handled()
 		return
+	if is_instance_valid(surface) and surface.visible and event is InputEventKey and event.pressed and not event.echo:
+		for action: String in ["new_chat","search","stop"]:
+			if Preferences.matches(owner_mod,action,event):
+				if action == "new_chat": owner_mod.chat_new()
+				elif action == "search": search.grab_focus()
+				else: owner_mod.chat_stop()
+				get_viewport().set_input_as_handled(); return
 	if surface != null and surface.visible and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		if _stat_panel.visible:
 			_stat_panel.hide()
@@ -339,17 +350,31 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _input_key(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode in [KEY_ENTER,KEY_KP_ENTER] and not event.shift_pressed:
-		input.accept_event()
-		_send()
+	if not event is InputEventKey or not event.pressed or event.echo: return
+	var alternate: bool = event.keycode in [KEY_ENTER,KEY_KP_ENTER] and (event.ctrl_pressed or event.meta_pressed) and not event.shift_pressed and not event.alt_pressed
+	if alternate or Preferences.matches(owner_mod,"send",event):
+		input.accept_event(); _send(alternate)
 
-func _send() -> void:
+func _send(alternate: bool = false) -> void:
 	var text: String = input.text.strip_edges()
-	if text.is_empty() or owner_mod.chat_busy(): return
-	var accepted: bool = owner_mod.chat_send_with_refs(text,mentions.references()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
+	if text.is_empty(): return
+	var accepted := false
+	if owner_mod.chat_busy():
+		var mode: String = str(Preferences.value(owner_mod,"busy_send"))
+		if alternate: mode = "interrupt" if mode == "queue" else "queue"
+		if mode == "wait" or not owner_mod.has_method("chat_enqueue"): return
+		accepted = owner_mod.chat_enqueue(text,mentions.references())
+		if accepted and mode == "interrupt": owner_mod.chat_stop()
+	else:
+		accepted = owner_mod.chat_send_with_refs(text,mentions.references()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
 	if accepted:
-		input.text = ""
-		mentions.sync()
+		input.text = ""; mentions.sync(); _update_status()
+
+func apply_preferences() -> void:
+	# Update display controls without recreating chart instances or losing filters.
+	for view: Variant in _message_views.values():
+		if is_instance_valid(view): view.apply_preferences(self)
+	_keep_position = true; _schedule_refresh()
 
 func _layout_title() -> void:
 	if not is_instance_valid(title_group) or not is_instance_valid(title_label): return
@@ -390,16 +415,16 @@ func _rename() -> void:
 	title_field.hide()
 	title_label.show()
 	title_edit_button.show()
-	title_label.text = str(store.current().get("title","Новый чат"))
+	title_label.text = str(store.current().get("title",L.text("Новый чат")))
 	_layout_title()
 
 func _ask_delete(chat_id: String = "") -> void:
 	_delete_id = store.selected if chat_id == "" else chat_id
 	if store.find(_delete_id).is_empty(): return
 	if store.running(_delete_id):
-		status.text = "Сначала дождитесь ответа или нажмите «Стоп»."
+		status.text = L.text("Сначала дождитесь ответа или нажмите «Стоп».")
 		return
-	delete_dialog.dialog_text = "Удалить чат «"+str(store.find(_delete_id).title)+"» навсегда?"
+	delete_dialog.dialog_text = L.text("Удалить чат «")+str(store.find(_delete_id).title)+L.text("» навсегда?")
 	delete_dialog.popup_centered()
 
 func _schedule_refresh() -> void:
@@ -420,6 +445,7 @@ func _render_sidebar() -> void:
 				var header := _button(("▸  " if group.collapsed else "▾  ")+str(group.title),store.toggle_section.bind(str(group.id)))
 				header.name = "Section_"+str(group.id).replace(":","_")
 				header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				header.set_meta("mod_user_text",true)
 				header.clip_text = true
 				header.add_theme_color_override("font_color",QUIET)
 				header.gui_input.connect(_section_mouse.bind(str(group.id),header))
@@ -428,10 +454,12 @@ func _render_sidebar() -> void:
 		if group.collapsed: continue
 		for chat: Dictionary in group.items:
 			var button := _button(("⌖  " if chat.get("pinned",false) else "")+str(chat.title)+( "  ◌" if store.running(str(chat.id)) else ""),owner_mod.chat_select.bind(str(chat.id)))
+			button.set_meta("mod_user_text",true)
 			button.name = "Session_"+str(chat.id).replace(":","_")
 			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			button.clip_text = true
+			button.set_meta("mod_user_tooltip",true)
 			button.tooltip_text = store.title_tooltip(chat)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.add_theme_stylebox_override("normal",Style.box(Color("#282c33") if chat.id == store.selected else SIDE,6,Color.TRANSPARENT,10))
@@ -466,8 +494,8 @@ func _refresh() -> void:
 		_visible_count = 60
 		input.text = str(store.current().get("draft",""))
 		follow = true
-	if not _editing_title: title_field.text = str(store.current().get("title","Новый чат"))
-	title_label.text = str(store.current().get("title","Новый чат"))
+	if not _editing_title: title_field.text = str(store.current().get("title",L.text("Новый чат")))
+	title_label.text = str(store.current().get("title",L.text("Новый чат")))
 	_layout_title()
 	mentions.sync()
 	_render_sidebar()
@@ -502,10 +530,10 @@ func _render_transcript(messages: Array) -> void:
 				feed.remove_child(child); child.queue_free()
 		WorkspaceUI.render(self)
 		if messages.is_empty():
-			feed.add_child(_label("Чем помочь?",26,TEXT))
-			feed.add_child(_label("Обсудите планы, проверьте положение страны или дайте поручение.\nЗдесь будут видны шаги помощника и результаты его инструментов.",15,QUIET))
+			feed.add_child(_label(L.text("Чем помочь?"),26,TEXT))
+			feed.add_child(_label(L.text("Обсудите планы, проверьте положение страны или дайте поручение.\nЗдесь будут видны шаги помощника и результаты его инструментов."),15,QUIET))
 		if messages.size() > _visible_count:
-			feed.add_child(_button("Показать предыдущие сообщения",func():
+			feed.add_child(_button(L.text("Показать предыдущие сообщения"),func():
 				_visible_count += 60
 				_keep_position = true
 				_schedule_refresh()))
@@ -539,34 +567,39 @@ func _toggle(key: String) -> void:
 
 func _render_events(column: VBoxContainer, message: Dictionary) -> void:
 	var key: String = str(message.id)
-	if not _expanded.has(key): _expanded[key] = message.get("status") == "running"
+	var running: bool = message.get("status") == "running"
+	var mode: String = str(Preferences.value(owner_mod,"dialog_display"))
+	if mode == "answers" and not running and not message.get("events",[]).any(func(event: Dictionary): return event.get("status") == "failed" or not event.get("errors",[]).is_empty()): return
+	var expanded: bool = _expanded.get(key,running or mode == "detailed")
 	var events: Array = message.get("events",[])
 	var tools: int = events.filter(func(e: Dictionary): return e.kind == "tool").size()
 	var elapsed: int = int(message.get("elapsed_ms",0))
-	var label: String = "Выполняется" if message.get("status") == "running" else ("Выполнено" if message.get("status") == "complete" else "Прервано")
-	var button := _button(("⌄  " if _expanded[key] else "›  ")+label+" · инструментов: "+str(tools)+( " · "+_duration(elapsed) if elapsed > 0 else ""),_toggle.bind(key))
+	var label: String = L.text("Выполняется") if message.get("status") == "running" else (L.text("Выполнено") if message.get("status") == "complete" else L.text("Прервано"))
+	var button := _button(("⌄  " if expanded else "›  ")+label+L.text(" · инструментов: ")+str(tools)+( " · "+_duration(elapsed) if elapsed > 0 else ""),_toggle.bind(key))
 	button.name = "Steps_"+key.replace(":","_")
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.add_theme_color_override("font_color",QUIET)
 	button.add_theme_stylebox_override("normal",Style.box(Color.TRANSPARENT,0,Color.TRANSPARENT,4))
 	column.add_child(button)
-	if not _expanded[key]: return
+	if not expanded: return
 	var group := VBoxContainer.new()
 	group.add_theme_constant_override("separation",5)
 	column.add_child(group)
 	for event: Dictionary in events:
 		if event.kind == "note": _append_markdown(group,str(event.text))
 		elif event.kind == "step":
-			group.add_child(_label(("◌  " if event.status == "running" else "·  ")+"Запрос к модели №"+str(event.round)+( " · "+_duration(int(event.elapsed_ms)) if event.status != "running" else (" · получаю ответ…" if message.has("stream") else " · ожидаю ответ…")),13,QUIET))
+			group.add_child(_label(("◌  " if event.status == "running" else "·  ")+L.text("Запрос к модели №")+str(event.round)+( " · "+_duration(int(event.elapsed_ms)) if event.status != "running" else (L.text(" · получаю ответ…") if message.has("stream") else L.text(" · ожидаю ответ…"))),13,QUIET))
 		elif event.kind == "tool": _render_tool(group,key,event)
 
 func _render_tool(group: VBoxContainer, message_id: String, event: Dictionary) -> void:
+	var technical: bool = bool(Preferences.value(owner_mod,"technical_details"))
 	var key: String = message_id+":"+str(event.id)
 	var state: String = str(event.get("status","running"))
 	var icon: String = "◌" if state == "running" else "✕" if state in ["failed","interrupted"] else "↗" if state == "submitted" else "✓"
-	var caption: String = TOOL_LABELS.get(str(event.name),str(event.name))
-	var detail: String = "ожидаю" if state == "running" else "ошибка" if state == "failed" else "отправлено, ожидает исполнения" if state == "submitted" else "прервано" if state == "interrupted" else _tool_summary(event)
+	var caption: String = L.text(TOOL_LABELS.get(str(event.name),str(event.name)))
+	var detail: String = L.text("ожидаю") if state == "running" else L.text("ошибка") if state == "failed" else L.text("отправлено, ожидает исполнения") if state == "submitted" else L.text("прервано") if state == "interrupted" else _tool_summary(event)
 	var button := _button(icon+"  "+caption+"  ·  "+detail+("  ⌄" if _expanded.get(key,false) else "  ›"),_toggle.bind(key))
+	button.disabled = not technical
 	button.name = "Tool_"+str(event.id).replace(":","_")
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.clip_text = true
@@ -576,7 +609,7 @@ func _render_tool(group: VBoxContainer, message_id: String, event: Dictionary) -
 	button.add_theme_color_override("font_color",Color("#ed9292") if state == "failed" else QUIET)
 	button.add_theme_stylebox_override("normal",Style.box(Color.TRANSPARENT,0,Color.TRANSPARENT,5))
 	group.add_child(button)
-	if not _expanded.get(key,false): return
+	if not technical or not _expanded.get(key,false): return
 	var details := TextEdit.new()
 	details.name = "ToolDetails"
 	details.editable = false
@@ -584,23 +617,23 @@ func _render_tool(group: VBoxContainer, message_id: String, event: Dictionary) -
 	details.custom_minimum_size.y = 230
 	details.add_theme_font_size_override("font_size",12)
 	var output: String = JSON.stringify(event.get("result",{}),"  ")
-	details.text = "Инструмент: "+str(event.name)+"\n\nПараметры:\n"+JSON.stringify(event.get("arguments",{}),"  ")+"\n\nРезультат:\n"+output.left(32000)
-	if output.length() > 32000: details.text += "\n\n[Показан фрагмент. Полный результат сохранён в этом чате.]"
-	if not event.get("errors",[]).is_empty(): details.text += "\n\nОшибки:\n"+JSON.stringify(event.errors)
+	details.text = L.text("Инструмент: ")+str(event.name)+L.text("\n\nПараметры:\n")+JSON.stringify(event.get("arguments",{}),"  ")+L.text("\n\nРезультат:\n")+output.left(32000)
+	if output.length() > 32000: details.text += L.text("\n\n[Показан фрагмент. Полный результат сохранён в этом чате.]")
+	if not event.get("errors",[]).is_empty(): details.text += L.text("\n\nОшибки:\n")+JSON.stringify(event.errors)
 	group.add_child(details)
 
 func _tool_summary(event: Dictionary) -> String:
 	var result: Variant = event.get("result",{})
 	if result is Dictionary:
-		if result.has("total") and result.has("returned"): return "найдено "+str(result.total)+", показано "+str(result.returned)
-		if event.name == "money.read": return "в казне "+str(result.get("amount","—"))
-		if event.name == "orders.read": return "приказов: "+str(result.get("queue",[]).size())
-	return "готово"
+		if result.has("total") and result.has("returned"): return L.text("найдено ")+str(result.total)+L.text(", показано ")+str(result.returned)
+		if event.name == "money.read": return L.text("в казне ")+str(result.get("amount","—"))
+		if event.name == "orders.read": return L.text("приказов: ")+str(result.get("queue",[]).size())
+	return L.text("готово")
 
 func _duration(milliseconds: int) -> String:
-	if milliseconds < 1000: return str(milliseconds)+" мс"
-	if milliseconds < 60000: return "%.1f с" % (milliseconds/1000.0)
-	return "%d мин %d с" % [milliseconds/60000,(milliseconds/1000)%60]
+	if milliseconds < 1000: return str(milliseconds)+L.text(" мс")
+	if milliseconds < 60000: return L.text("%.1f с") % (milliseconds/1000.0)
+	return L.text("%d мин %d с") % [milliseconds/60000,(milliseconds/1000)%60]
 
 func _process(delta: float) -> void:
 	_timer += delta
@@ -609,14 +642,15 @@ func _process(delta: float) -> void:
 		_update_status()
 
 func _update_send_state() -> void:
-	send_button.disabled = owner_mod.chat_busy() or store.current().is_empty() or input.text.strip_edges().is_empty()
+	send_button.disabled = (owner_mod.chat_busy() and (Preferences.value(owner_mod,"busy_send") == "wait" or not owner_mod.has_method("chat_enqueue"))) or store.current().is_empty() or input.text.strip_edges().is_empty()
 
 func _update_status() -> void:
 	var busy: bool = owner_mod.chat_busy()
 	_update_send_state()
-	send_button.visible = not busy
+	send_button.visible = not busy or Preferences.value(owner_mod,"busy_send") != "wait"
+	send_button.tooltip_text = L.text("В очередь") if busy and Preferences.value(owner_mod,"busy_send") == "queue" else L.text("Прервать и отправить") if busy else L.text("Отправить")
 	stop_button.visible = busy
-	status.text = agent_name.display_name+" работает…" if busy else ""
+	status.text = agent_name.display_name+L.text(" работает…") if busy else ""
 	status.visible = busy
 	if native.mic_button != null:
 		mic_button.icon = Icons.make("stop" if native.mic_button.button_pressed else "mic",Color("#d5979e") if native.mic_button.button_pressed else QUIET)
@@ -625,19 +659,23 @@ func _update_status() -> void:
 
 func _update_statistics() -> void:
 	if _stat_buttons.is_empty(): return
+	var mode: String = str(Preferences.value(owner_mod,"usage_display"))
+	_stat_buttons[0].get_parent().visible = mode != "hidden"
+	_stat_buttons[0].visible = mode == "detailed"
+	if mode == "hidden": _stat_panel.hide(); _stat_pinned = ""; return
 	var stats: Dictionary = Metrics.summarize(store.current())
-	_stat_buttons[0].text = "Ходов: %d · шагов: %d" % [stats.turns,stats.steps]
-	if stats.tps > 0: _stat_buttons[0].text += " · ≈%.0f ток/с" % stats.tps
-	_stat_buttons[1].text = ""+Metrics.compact(int(stats.total))+" ток" if stats.usage_requests > 0 else "Токены: нет данных"
-	if stats.cache_known: _stat_buttons[1].text += " · Попадание в кэш %.0f%%" % stats.cache_percent
+	_stat_buttons[0].text = L.text("Ходов: %d · шагов: %d") % [stats.turns,stats.steps]
+	if stats.tps > 0: _stat_buttons[0].text += L.text(" · ≈%.0f ток/с") % stats.tps
+	_stat_buttons[1].text = ""+Metrics.compact(int(stats.total))+L.text(" ток") if stats.usage_requests > 0 else L.text("Токены: нет данных")
+	if stats.cache_known and mode == "detailed": _stat_buttons[1].text += L.text(" · Попадание в кэш %.0f%%") % stats.cache_percent
 	var last: Dictionary = stats.last
 	var limit: int = int(last.get("context_limit",0))
 	var used: int = int(last.get("tokens",{}).get("input",0))
-	_stat_buttons[2].text = "%.1f%%" % (100.0*used/limit) if limit > 0 and last.get("tokens",{}).get("known",false) else "Контекст: —"
-	_stat_buttons[0].tooltip_text = "Статистика выбранного чата. Нажмите для подробностей."
-	if str(last.get("model","")) != "": _stat_buttons[0].tooltip_text += "\nПоследняя модель запроса: "+str(last.model)
-	_stat_buttons[1].tooltip_text = "Фактические токены и кэш из ответов API. Нажмите для подробностей."
-	_stat_buttons[2].tooltip_text = "Использование контекста последнего завершённого запроса."
+	_stat_buttons[2].text = "%.1f%%" % (100.0*used/limit) if limit > 0 and last.get("tokens",{}).get("known",false) else L.text("Контекст: —")
+	_stat_buttons[0].tooltip_text = L.text("Статистика выбранного чата. Нажмите для подробностей.")
+	if str(last.get("model","")) != "": _stat_buttons[0].tooltip_text += L.text("\nПоследняя модель запроса: ")+str(last.model)
+	_stat_buttons[1].tooltip_text = L.text("Фактические токены и кэш из ответов API. Нажмите для подробностей.")
+	_stat_buttons[2].tooltip_text = L.text("Использование контекста последнего завершённого запроса.")
 
 func _pin_stat(kind: String) -> void:
 	if _stat_pinned == kind:
@@ -659,29 +697,29 @@ func _show_stat(kind: String) -> void:
 	var rows: Array = []
 	var index: int = _stat_index
 	if kind == "session":
-		_stat_body.add_child(_stat_label("◴  Статистика сессии",16,TEXT))
-		rows = [["Время LLM",_duration(int(stats.llm_ms))],["Время инструментов",_duration(int(stats.tool_ms))],
-			["Токенов в секунду (TPS)","≈%.1f ток/с" % stats.tps if stats.tps > 0 else "—"]]
-		if str(stats.last.get("model","")) != "": rows.append(["Модель последнего запроса",str(stats.last.model)])
-		if str(stats.last.get("provider_host","")) != "": rows.append(["Провайдер запроса",str(stats.last.provider_host)])
+		_stat_body.add_child(_stat_label(L.text("◴  Статистика сессии"),16,TEXT))
+		rows = [[L.text("Время LLM"),_duration(int(stats.llm_ms))],[L.text("Время инструментов"),_duration(int(stats.tool_ms))],
+			[L.text("Токенов в секунду (TPS)"),L.text("≈%.1f ток/с") % stats.tps if stats.tps > 0 else "—"]]
+		if str(stats.last.get("model","")) != "": rows.append([L.text("Модель последнего запроса"),str(stats.last.model)])
+		if str(stats.last.get("provider_host","")) != "": rows.append([L.text("Провайдер запроса"),str(stats.last.provider_host)])
 	elif kind == "tokens":
 		var header := HBoxContainer.new()
-		header.add_child(_stat_label("▣  Использование токенов",16,TEXT))
-		var total: Label = _stat_label(Metrics.exact(int(stats.total))+" ток" if stats.usage_requests > 0 else "—",14,TEXT)
+		header.add_child(_stat_label(L.text("▣  Использование токенов"),16,TEXT))
+		var total: Label = _stat_label(Metrics.exact(int(stats.total))+L.text(" ток") if stats.usage_requests > 0 else "—",14,TEXT)
 		total.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		header.add_child(total)
 		_stat_body.add_child(header)
 		if stats.usage_requests > 0:
-			rows = [["Попадание в кэш","%.0f%%" % stats.cache_percent if stats.cache_known else "—"],
-				["Некэшированный ввод",Metrics.exact(int(stats.uncached))+" ток" if stats.cache_known else "—"],["Кэшированный ввод",Metrics.exact(int(stats.cached))+" ток" if stats.cache_known else "—"],
-				["Вывод",Metrics.exact(int(stats.output))+" ток"]]
-		else: rows = [["Попадание в кэш","—"],["Некэшированный ввод","—"],["Кэшированный ввод","—"],["Вывод","—"]]
+			rows = [[L.text("Попадание в кэш"),"%.0f%%" % stats.cache_percent if stats.cache_known else "—"],
+				[L.text("Некэшированный ввод"),Metrics.exact(int(stats.uncached))+L.text(" ток") if stats.cache_known else "—"],[L.text("Кэшированный ввод"),Metrics.exact(int(stats.cached))+L.text(" ток") if stats.cache_known else "—"],
+				[L.text("Вывод"),Metrics.exact(int(stats.output))+L.text(" ток")]]
+		else: rows = [[L.text("Попадание в кэш"),"—"],[L.text("Некэшированный ввод"),"—"],[L.text("Кэшированный ввод"),"—"],[L.text("Вывод"),"—"]]
 	else:
 		var last: Dictionary = stats.last
 		var used: int = int(last.get("tokens",{}).get("input",0))
 		var limit: int = int(last.get("context_limit",0))
 		var known: bool = last.get("tokens",{}).get("known",false)
-		_stat_body.add_child(_stat_label("◔  Использовано контекста: "+("%.1f%%  %s / %s" % [100.0*used/limit,Metrics.compact(used),Metrics.compact(limit)] if limit > 0 and known else "нет данных"),15,TEXT))
+		_stat_body.add_child(_stat_label(L.text("◔  Использовано контекста: ")+("%.1f%%  %s / %s" % [100.0*used/limit,Metrics.compact(used),Metrics.compact(limit)] if limit > 0 and known else L.text("нет данных")),15,TEXT))
 		var progress := ProgressBar.new()
 		progress.custom_minimum_size.y = 6
 		progress.show_percentage = false
@@ -690,7 +728,7 @@ func _show_stat(kind: String) -> void:
 		progress.add_theme_stylebox_override("background",Style.box(Color("#41454d"),2,Color.TRANSPARENT,0))
 		_stat_body.add_child(progress)
 		var parts: Dictionary = Metrics.context_parts(last)
-		rows = [["Системный промпт","≈"+Metrics.compact(int(parts.system))],["Определения инструментов","≈"+Metrics.compact(int(parts.tools))],["Сообщения","≈"+Metrics.compact(int(parts.messages))]]
+		rows = [[L.text("Системный промпт"),"≈"+Metrics.compact(int(parts.system))],[L.text("Определения инструментов"),"≈"+Metrics.compact(int(parts.tools))],[L.text("Сообщения"),"≈"+Metrics.compact(int(parts.messages))]]
 		if not known:
 			for row: Array in rows: row[1] = "—"
 	_stat_body.add_child(HSeparator.new())
@@ -710,7 +748,7 @@ func _show_stat(kind: String) -> void:
 		else: grid.add_child(_stat_label(str(row[0]),13,QUIET))
 		var value: Label = _stat_label(str(row[1]),13,TEXT)
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		if row[0] in ["Модель последнего запроса","Провайдер запроса"]:
+		if row[0] in [L.text("Модель последнего запроса"),L.text("Провайдер запроса")]:
 			value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			value.custom_minimum_size.x = 230
 		grid.add_child(value)

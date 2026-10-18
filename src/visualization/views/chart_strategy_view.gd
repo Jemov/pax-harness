@@ -58,7 +58,7 @@ func _gantt() -> void:
 		low = minf(low,task.start); high = maxf(high,task.end)
 		var height: float = maxf(40,_height(str(task.label),left-22)+18); row_heights.append(height); total_height += height
 	if low == high: low -= 1; high += 1
-	var heading: String = str(spec.get("x_label",spec.get("unit","Дни кампании")))
+	var heading: String = str(spec.get("x_label",spec.get("unit",L.text("Дни кампании"))))
 	var top: float = 48+_height(heading,size.x-20)
 	_grow_height(top+total_height+20)
 	var area := Rect2(left,top,size.x-left-18,total_height)
@@ -86,8 +86,8 @@ func _gantt() -> void:
 			draw_style_box(Style.box(Color(color,0.28*alpha),4,Color(color,0.8*alpha),0),rect)
 			if task.has("progress") and task.progress > 0: draw_style_box(Style.box(Color(color,0.65*alpha),4,Color.TRANSPARENT,0),Rect2(rect.position,Vector2(rect.size.x*float(task.progress),rect.size.y)))
 		var text: String = str(task.label)+"\n"+Chart.number(task.start)+" — "+Chart.number(task.end)
-		if task.has("progress"): text += "\nВыполнено: "+Chart.number(task.progress*100)+"%"
-		text += "\n"+{"planned":"Запланировано","active":"В работе","blocked":"Заблокировано","complete":"Завершено"}.get(str(task.get("status","")),"Статус не указан")
+		if task.has("progress"): text += L.text("\nВыполнено: ")+Chart.number(task.progress*100)+"%"
+		text += "\n"+{"planned":L.text("Запланировано"),"active":L.text("В работе"),"blocked":L.text("Заблокировано"),"complete":L.text("Завершено")}.get(str(task.get("status","")),L.text("Статус не указан"))
 		_hit(Rect2(8,y,size.x-16,row_height),text); y += row_height
 	for edge: Dictionary in spec.get("dependencies",[]):
 		var from: Rect2 = rects[edge.source]; var to: Rect2 = rects[edge.target]
@@ -97,7 +97,7 @@ func _gantt() -> void:
 	if spec.has("now") and spec.now >= low and spec.now <= high:
 		var x: float = left+(float(spec.now)-low)/(high-low)*area.size.x
 		draw_dashed_line(Vector2(x,top),Vector2(x,area.end.y),Color("#e3bc76"),1.5,5,true)
-		_hit(Rect2(x-4,top,8,area.size.y),"Текущий момент: "+Chart.number(spec.now))
+		_hit(Rect2(x-4,top,8,area.size.y),L.text("Текущий момент: ")+Chart.number(spec.now))
 func _network() -> void:
 	var positions: Dictionary = {}; var radii: Dictionary = {}; var groups: Dictionary = {}; var maximum := 1.0
 	for node: Dictionary in spec.nodes: maximum = maxf(maximum,float(node.get("value",1)))
@@ -127,7 +127,7 @@ func _network() -> void:
 		if spec.get("directed",false): _arrow(b+(a-b).normalized()*(radii[edge.target]+3),b-a,color)
 		var direction: Vector2 = (b-a).normalized(); var side := Vector2(-direction.y,direction.x)*maxf(5,width)
 		var polygon := PackedVector2Array([a+side,b+side,b-side,a-side])
-		_hit(Rect2(a,Vector2.ZERO).expand(b).grow(6),str(edge.get("label","Связь"))+" · "+str(edge.source)+" → "+str(edge.target)+("\nВес: "+_amount(edge.value) if edge.has("value") else ""),polygon)
+		_hit(Rect2(a,Vector2.ZERO).expand(b).grow(6),str(edge.get("label",L.text("Связь")))+" · "+str(edge.source)+" → "+str(edge.target)+(L.text("\nВес: ")+_amount(edge.value) if edge.has("value") else ""),polygon)
 	for i: int in spec.nodes.size():
 		var node: Dictionary = spec.nodes[i]; var p: Vector2 = positions[node.id]; var radius: float = radii[node.id]
 		var color: Color = COLORS[int(groups[str(node.get("group",""))])%COLORS.size()]
@@ -162,9 +162,9 @@ func _sunburst() -> void:
 		focused = Focus.paths(spec.nodes,edges,selected)
 	_sun_sectors(root_id,-PI/2,TAU,0,center,inner,ring,nodes,children,totals,focused,0)
 	draw_circle(center,inner-3,Color("#202936"),true,-1,true)
-	_fit("Всего",Rect2(center-Vector2(inner-5,20),Vector2((inner-5)*2,20)),Color("#94a6bf"))
+	_fit(L.text("Всего"),Rect2(center-Vector2(inner-5,20),Vector2((inner-5)*2,20)),Color("#94a6bf"))
 	_fit(Chart.number(totals[root_id]),Rect2(center+Vector2(-inner+5,2),Vector2((inner-5)*2,22)),Color("#e3ebf8"))
-	_hit(Rect2(center-Vector2.ONE*inner,Vector2.ONE*inner*2),str(nodes[root_id].label)+"\n"+_amount(totals[root_id])+"\nНажмите, чтобы вернуться к корню")
+	_hit(Rect2(center-Vector2.ONE*inner,Vector2.ONE*inner*2),str(nodes[root_id].label)+"\n"+_amount(totals[root_id])+L.text("\nНажмите, чтобы вернуться к корню"))
 	hits[-1]["node_id"] = root_id
 func _sum_tree(id: String, nodes: Dictionary, children: Dictionary, totals: Dictionary) -> float:
 	var total: float = float(nodes[id].get("value",0))
@@ -194,6 +194,6 @@ func _sun_sectors(id: String, angle: float, span: float, level: int, center: Vec
 			Text.draw_text(self,code,box,Color("#f1f4fc"),HORIZONTAL_ALIGNMENT_CENTER,12,text_boxes)
 		var bounds := Rect2(polygon[0],Vector2.ZERO)
 		for point: Vector2 in polygon: bounds = bounds.expand(point)
-		_hit(bounds,str(nodes[child].label)+"\n"+_amount(totals[child])+"\n"+Chart.number(totals[child]/totals[id]*100)+"% от родителя",polygon); hits[-1]["node_id"] = child
+		_hit(bounds,str(nodes[child].label)+"\n"+_amount(totals[child])+"\n"+Chart.number(totals[child]/totals[id]*100)+L.text("% от родителя"),polygon); hits[-1]["node_id"] = child
 		_sun_sectors(child,cursor,arc,level+1,center,inner,ring,nodes,children,totals,focused,index)
 		cursor += arc

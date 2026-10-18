@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Durable checkpoints + retained recent tail. Full messages/tools stay in the save.
 const THRESHOLD_RATIO := 0.8
 const RETAIN_RATIO := 0.16
@@ -140,7 +141,7 @@ func _start(chat_id: String, selection: Dictionary, mode: String, done: Callable
 	if available_chars < 1: return {"ok":false,"code":"compaction_context_too_large"}
 	sequence += 1
 	var token: String = "compact:%d:%d" % [owner_mod._source_generation,sequence]
-	var row: Dictionary = {"id":owner_mod.chat_store._id("message:"),"role":"system","kind":"compaction","text":"Сжимаю контекст…","date":owner_mod._game.date_text(),"status":"running","events":[]}
+	var row: Dictionary = {"id":owner_mod.chat_store._id("message:"),"role":"system","kind":"compaction","text":L.text("Сжимаю контекст…"),"date":owner_mod._game.date_text(),"status":"running","events":[]}
 	var messages: Array = owner_mod.chat_store.find(chat_id).messages
 	var active: int = -1
 	for index: int in messages.size():
@@ -221,8 +222,8 @@ func _finish(token: String, result: Dictionary) -> void:
 	var row: Dictionary = job.store.message(job.target)
 	if not row.is_empty():
 		row.status = "complete" if result.ok else "interrupted"
-		var failures: Dictionary = {"cancelled":"Сжатие остановлено","compaction_no_reduction":"Контекст уже достаточно короткий","compaction_invalid_summary":"Не удалось получить сводку. Переписка сохранена.","compaction_source_changed":"Переписка изменилась. Повторите /compact."}
-		row.text = "Контекст сжат" if result.ok else str(failures.get(result.get("code",""),"Не удалось сжать контекст. Переписка сохранена."))
+		var failures: Dictionary = {"cancelled":L.text("Сжатие остановлено"),"compaction_no_reduction":L.text("Контекст уже достаточно короткий"),"compaction_invalid_summary":L.text("Не удалось получить сводку. Переписка сохранена."),"compaction_source_changed":L.text("Переписка изменилась. Повторите /compact.")}
+		row.text = L.text("Контекст сжат") if result.ok else str(failures.get(result.get("code",""),L.text("Не удалось сжать контекст. Переписка сохранена.")))
 		row["summary"] = result.get("summary","")
 		row["before_chars"] = int(job.selection.get("context_chars",str(job.selection.text).length()))
 		row["after_chars"] = JSON.stringify([job.store.checkpoint_message(str(result.get("summary","")))]).length() if job.mode == "chat" else str(result.get("summary","")).length()

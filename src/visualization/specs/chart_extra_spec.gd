@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Extra statistical chart schemas. Only bounded numbers, text and geometry.
 const Extended = preload("res://mods/pax_harness/src/visualization/specs/chart_extended_spec.gd")
 const Strategy = preload("res://mods/pax_harness/src/visualization/specs/chart_strategy_spec.gd")
@@ -127,14 +128,14 @@ static func plain(spec: Dictionary) -> String:
 	if spec.type in Extended.TYPES: return Extended.plain(spec)
 	if spec.type in Strategy.TYPES: return Strategy.plain(spec)
 	var lines := PackedStringArray([str(spec.title)])
-	if spec.get("basis","observed") != "observed": lines.append("Основа: "+str(spec.basis))
+	if spec.get("basis","observed") != "observed": lines.append(L.text("Основа: ")+str(spec.basis))
 	for key: String in ["x_label","y_label","size_label"]:
 		if spec.get(key,"") != "": lines.append(key+": "+str(spec[key]))
 	if spec.has("labels"):
 		for index: int in spec.labels.size():
 			var values: Array = []
 			if spec.has("x"): values.append("x: "+str(spec.x[index]))
-			if spec.has("sizes"): values.append(str(spec.get("size_label","Размер"))+": "+str(spec.sizes[index]))
+			if spec.has("sizes"): values.append(str(spec.get("size_label",L.text("Размер")))+": "+str(spec.sizes[index]))
 			for row: Dictionary in spec.get("series",[]): values.append(row.name+": "+str(row.values[index]))
 			if spec.has("matrix"): values.append(str(spec.matrix[index]))
 			lines.append(str(spec.labels[index])+" — "+", ".join(values))
@@ -145,6 +146,6 @@ static func plain(spec: Dictionary) -> String:
 	for row: Dictionary in spec.get("regions",[]): lines.append(str(row.label)+": "+str(row.value))
 	for row: Dictionary in spec.get("boxes",[]): lines.append(str(row))
 	for row: Dictionary in spec.get("groups",[]): lines.append(str(row.name)+": "+str(row.samples))
-	if spec.has("samples"): lines.append("Наблюдения: "+str(spec.samples))
-	lines.append("Источник: "+str(spec.source))
+	if spec.has("samples"): lines.append(L.text("Наблюдения: ")+str(spec.samples))
+	lines.append(L.text("Источник: ")+str(spec.source))
 	return "\n".join(lines)

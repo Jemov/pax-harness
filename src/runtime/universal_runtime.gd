@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Bounded, explicitly granted tool orchestration. Native delivery is a terminal tool.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const Failure = preload("res://mods/pax_harness/src/core/runtime_error.gd")
@@ -170,7 +171,7 @@ func _prepared(result: Dictionary, token: String, step: int) -> void:
 		if input_estimate+output_reserve+1024 > window:
 			var details: Dictionary = {"estimated_input_tokens":input_estimate,"output_reserve":output_reserve,"framing_reserve":1024,"context_limit":window,"request_sent":false,"silent_truncation":false}
 			s["failure"] = Failure.make("context_too_large_no_compactable_span",details)
-			s.failure.message = "Запрос не помещается в окно модели даже после сжатия. Выберите модель с большим окном или сократите задачу и набор инструментов. Выполненные действия сохранены."
+			s.failure.message = L.text("Запрос не помещается в окно модели даже после сжатия. Выберите модель с большим окном или сократите задачу и набор инструментов. Выполненные действия сохранены.")
 			_end(token,false,"context_too_large_no_compactable_span",details)
 			return
 	if not s.pending_images.is_empty():
@@ -225,7 +226,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 			response = response.duplicate(true)
 			var limitations := PackedStringArray()
 			for error: Dictionary in unresolved: limitations.append(_visual_error_text(error))
-			var heading: String = "Не удалось создать часть изображений:" if unresolved.all(func(error: Dictionary): return error.tool == "images.generate") else "Не удалось построить часть визуализаций:"
+			var heading: String = L.text("Не удалось создать часть изображений:") if unresolved.all(func(error: Dictionary): return error.tool == "images.generate") else L.text("Не удалось построить часть визуализаций:")
 			response.message = str(response.message).strip_edges()+"\n\n"+heading+"\n"+"\n".join(limitations)
 	if calls.is_empty() and s.scope.get("channel") == "assistant":
 		var charts: Dictionary = ChartResponse.validate_message(response.message,s.receipts)
@@ -254,7 +255,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 			response = response.duplicate(true)
 			var explanations := PackedStringArray()
 			for chart: Dictionary in prepared: explanations.append("• "+str(reasons[chart.call_id]).replace("\r"," ").replace("\n"," ").left(1000))
-			response.message = str(response.message).strip_edges()+"\n\nПодготовленные визуализации не показаны:\n"+"\n".join(explanations)
+			response.message = str(response.message).strip_edges()+L.text("\n\nПодготовленные визуализации не показаны:\n")+"\n".join(explanations)
 	# Validate the entire batch before committing its first effect.
 	for index: int in calls.size():
 		var call: Dictionary = calls[index]
@@ -379,7 +380,7 @@ func _missing_display(token: String, charts: Array) -> void:
 	var attempt: int = int(s.get("display_repairs",0))
 	if attempt >= MAX_DISPLAY_REPAIRS or s.round >= int(s.scope.get("max_rounds",MAX_ROUNDS)):
 		s["failure"] = Failure.make("charts.missing_display_reference",charts)
-		s.failure.message = "Данные диаграммы подготовлены, но модель не добавила её в ответ. Результаты инструментов сохранены; визуализация не показана."
+		s.failure.message = L.text("Данные диаграммы подготовлены, но модель не добавила её в ответ. Результаты инструментов сохранены; визуализация не показана.")
 		_end(token,false,"charts.missing_display_reference",charts)
 		return
 	s["display_repairs"] = attempt+1
@@ -411,7 +412,7 @@ static func unresolved_visualizations(receipts: Array) -> Array:
 	return pending.values()
 
 static func _visual_error_text(error: Dictionary) -> String:
-	var description: String = "Генератор не создал изображение." if error.get("tool") == "images.generate" else "Инструмент отказал в построении диаграммы."
+	var description: String = L.text("Генератор не создал изображение.") if error.get("tool") == "images.generate" else L.text("Инструмент отказал в построении диаграммы.")
 	if error.get("result") is Dictionary and error.result.get("message") is String: description = error.result.message
 	elif error.get("failure") is Dictionary and error.failure.get("message") is String: description = error.failure.message
 	elif not error.get("errors",[]).is_empty(): description = str(error.errors[0])
@@ -425,7 +426,7 @@ func _visual_tool_error(token: String, errors: Array) -> void:
 	var code: String = "images.unresolved_tool_errors" if images else "charts.unresolved_tool_errors"
 	if attempt >= MAX_VISUAL_TOOL_REPAIRS or s.round >= int(s.scope.get("max_rounds",MAX_ROUNDS)):
 		s["failure"] = Failure.make(code,errors)
-		s.failure.message = "Изображение не создано: модель не исправила ошибку генератора." if images else "Диаграмма не построена: модель завершила ответ, не исправив ошибку инструмента. Выполненные шаги сохранены."
+		s.failure.message = L.text("Изображение не создано: модель не исправила ошибку генератора.") if images else L.text("Диаграмма не построена: модель завершила ответ, не исправив ошибку инструмента. Выполненные шаги сохранены.")
 		if images:
 			for error: Dictionary in errors: s.failure.message += "\n"+_visual_error_text(error)
 		_end(token,false,code,errors)

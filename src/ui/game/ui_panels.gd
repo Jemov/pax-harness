@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Fixed native navigation only. Never dispatches a model-provided method/path.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const WINDOWS := {"orders":["orders_window","Приказы"],"projects":["projects_window","Проекты"],"development":["development_window_node","Развитие"],"contacts":["contacts_window","Контакты"],"goals":["list_wrapper","Цели и задачи"],"planets":["planets_window","Планеты"],"inbox":["inbox_window","Переписка"],"resources":["resources_window","Ресурсы"],"diplomacy":["diplomacy_window","Дипломатия"],"chronicle":["chronicle_window","Хроника"],"time_machine":["time_machine_window","Машина времени"],"laws":["laws_window","Законы"],"power":["power_window","Власть"],"special_projects":["special_projects_window","Особые проекты"],"mining":["mining_window","Добыча"],"profile":["profile_window","Профиль"],"science":["science_window","Наука"],"world":["world_window","Мировой рынок"],"wars":["wars_window","Войны"],"threats":["threats_window","Угрозы"],"population":["population_window","Население"],"state":["state_window","Государство"],"trade":["trade_window","Торговля"],"output":["output_window","Производство"],"course":["course_window","Курс государства"],"rewind":["rewind_window","Переход во времени"]}
@@ -33,12 +34,12 @@ static func list_panels(game: RefCounted) -> Dictionary:
 	for id: String in WINDOWS:
 		var window: Variant = Data.property(ui,WINDOWS[id][0])
 		if window is Control and is_instance_valid(window) and not window.is_queued_for_deletion() and hud != null and hud.has_method("toggle_window"):
-			rows.append({"id":id,"title":WINDOWS[id][1],"visible":window.is_visible_in_tree()})
+			rows.append({"id":id,"title":L.text(WINDOWS[id][1]),"visible":window.is_visible_in_tree()})
 	var menu: Variant = Data.property(ui,"menu_node")
 	if menu is Node and is_instance_valid(menu) and menu.has_method("_settings_screen") and menu.has_method("open_pause"):
-		for id: String in SETTINGS: rows.append({"id":id,"title":SETTINGS_TITLES[id]})
+		for id: String in SETTINGS: rows.append({"id":id,"title":L.text(SETTINGS_TITLES[id])})
 		if menu.has_method("_provider_screen"):
-			for id: String in PROVIDERS: rows.append({"id":id,"title":PROVIDER_TITLES[id]})
+			for id: String in PROVIDERS: rows.append({"id":id,"title":L.text(PROVIDER_TITLES[id])})
 	return Data.success({"panels":rows,"navigation_only":true,"arbitrary_paths_supported":false})
 
 static func open_panel(game: RefCounted, id: String) -> Dictionary:

@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Shared raster-grid contours: neighboring provinces keep identical boundaries.
 const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
@@ -40,8 +41,8 @@ static func execute(game: Object, args: Dictionary) -> Dictionary:
 		var row: Dictionary = game.province(body,id)
 		var value: Variant = row.get("area_km2") if metric == "area_km2" else counts.get(id,0) if metric == "enterprise_count" else levels.get(id,0) if metric == "enterprise_levels" else custom.get(str(id))
 		regions.append({"id":str(id),"label":str(row.get("name",id)),"value":value,"polygons":geometry.regions[str(id)].polygons,"center":geometry.regions[str(id)].center})
-	var source: String = str(args.get("source","Текущие данные провинций · "+country+", "+game.date_text()))+("; границы по общей сетке карты игры" if contours else "; схематичные плитки по положениям провинций")
-	var chart: Dictionary = {"body":body,"type":args.get("type","choropleth"),"title":args.get("title","Провинции · "+country),"source":source,"regions":regions,"aspect":geometry.aspect,"unit":"км²" if metric == "area_km2" else "предприятий" if metric == "enterprise_count" else "уровни" if metric == "enterprise_levels" else str(args.get("unit",""))}
+	var source: String = str(args.get("source",L.text("Текущие данные провинций · ")+country+", "+game.date_text()))+(L.text("; границы по общей сетке карты игры") if contours else L.text("; схематичные плитки по положениям провинций"))
+	var chart: Dictionary = {"body":body,"type":args.get("type","choropleth"),"title":args.get("title",L.text("Провинции · ")+country),"source":source,"regions":regions,"aspect":geometry.aspect,"unit":L.text("км²") if metric == "area_km2" else L.text("предприятий") if metric == "enterprise_count" else L.text("уровни") if metric == "enterprise_levels" else str(args.get("unit",""))}
 	if Chart.validate(chart).is_empty(): return {"ok":false,"code":"charts.invalid_map_data"}
 	return {"ok":true,"result":{"chart":chart,"metric":metric,"country":country,"date":game.date_text(),"selected_count":ids.size(),"country_province_count":owned.size(),"geometry":"native province raster with shared-grid borders; equal-tile cartogram is schematic, not area-preserving geography","note":"Display returned chart unchanged. ONLY selected regions are drawn; unselected provinces are omitted, NOT gray. Within the selected set gray means no supplied value, not zero."}}
 

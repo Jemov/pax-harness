@@ -1,4 +1,5 @@
 extends Node
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## All menu actions bind the clicked chat, independently of the selected chat.
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Icons = preload("res://mods/pax_harness/src/ui/components/chat_icons.gd")
@@ -37,13 +38,13 @@ func setup(value: Node) -> void:
 	sections_menu.id_pressed.connect(_move)
 	copy_menu.id_pressed.connect(_copy)
 	section_popup = _popup("SectionContextMenu")
-	section_popup.add_item("Переименовать раздел",1)
-	section_popup.add_item("Удалить раздел",2)
+	section_popup.add_item(L.text("Переименовать раздел"),1)
+	section_popup.add_item(L.text("Удалить раздел"),2)
 	section_popup.id_pressed.connect(_section_action)
 	form = ConfirmationDialog.new()
 	form.name = "ChatNameDialog"
 	form.theme = ui.surface.theme
-	form.cancel_button_text = "Отмена"
+	form.cancel_button_text = L.text("Отмена")
 	form.exclusive = true
 	form.add_theme_stylebox_override("panel",Style.box(Color("#25262a"),8,Color.TRANSPARENT,18))
 	var border: StyleBox = form.get_theme_stylebox("embedded_border").duplicate()
@@ -99,12 +100,12 @@ func show_chat(id: String) -> void:
 	if chat.is_empty(): return
 	_target = id
 	popup.clear()
-	popup.add_item("Переименовать",1,KEY_MASK_CTRL|KEY_MASK_ALT|KEY_R)
+	popup.add_item(L.text("Переименовать"),1,KEY_MASK_CTRL|KEY_MASK_ALT|KEY_R)
 	popup.set_item_icon(popup.get_item_index(1),Icons.make("edit",Color("#9ba1ab"),16))
-	popup.add_item("Открепить" if chat.get("pinned",false) else "Закрепить",2,KEY_MASK_CTRL|KEY_MASK_ALT|KEY_P)
+	popup.add_item(L.text("Открепить") if chat.get("pinned",false) else L.text("Закрепить"),2,KEY_MASK_CTRL|KEY_MASK_ALT|KEY_P)
 	popup.set_item_icon(popup.get_item_index(2),Icons.make("pin",Color("#9ba1ab"),16))
 	sections_menu.clear()
-	sections_menu.add_radio_check_item("Без раздела",0)
+	sections_menu.add_radio_check_item(L.text("Без раздела"),0)
 	sections_menu.set_item_checked(0,str(chat.get("section_id","")) == "")
 	for section: Dictionary in store.sections:
 		var index: int = sections_menu.item_count
@@ -112,20 +113,20 @@ func show_chat(id: String) -> void:
 		sections_menu.set_item_metadata(index,str(section.id))
 		sections_menu.set_item_checked(index,str(chat.get("section_id","")) == str(section.id))
 	sections_menu.add_separator("",9999)
-	sections_menu.add_item("Новый раздел…",10000)
-	popup.add_submenu_node_item("Раздел",sections_menu,3)
+	sections_menu.add_item(L.text("Новый раздел…"),10000)
+	popup.add_submenu_node_item(L.text("Раздел"),sections_menu,3)
 	popup.set_item_icon(popup.get_item_index(3),Icons.make("section",Color("#9ba1ab"),16))
 	copy_menu.clear()
-	copy_menu.add_item("Как текст",0)
-	copy_menu.add_item("Как Markdown",1)
-	copy_menu.add_item("Как JSON",2)
+	copy_menu.add_item(L.text("Как текст"),0)
+	copy_menu.add_item(L.text("Как Markdown"),1)
+	copy_menu.add_item(L.text("Как JSON"),2)
 	copy_menu.add_separator("",100)
-	copy_menu.add_item("Последний ответ",3)
+	copy_menu.add_item(L.text("Последний ответ"),3)
 	copy_menu.set_item_disabled(copy_menu.get_item_index(3),store.export_chat(id,"last").is_empty())
-	popup.add_submenu_node_item("Скопировать",copy_menu,4)
+	popup.add_submenu_node_item(L.text("Скопировать"),copy_menu,4)
 	popup.set_item_icon(popup.get_item_index(4),Icons.make("copy",Color("#9ba1ab"),16))
 	popup.add_separator("",9000)
-	popup.add_item("Удалить навсегда",5)
+	popup.add_item(L.text("Удалить навсегда"),5)
 	popup.set_item_icon(popup.get_item_index(5),Icons.make("trash",Color("#d5979e"),16))
 	popup.set_item_modulate(popup.get_item_index(5),Color("#d5979e"))
 	popup.set_item_disabled(popup.get_item_index(5),store.running(id))
@@ -139,7 +140,7 @@ func _action(id: int) -> void:
 
 func _move(id: int) -> void:
 	if id == 10000:
-		_open_form("new_section",_target,"Новый раздел","","Создать раздел")
+		_open_form("new_section",_target,L.text("Новый раздел"),"",L.text("Создать раздел"))
 		return
 	var index: int = sections_menu.get_item_index(id)
 	if index < 0: return
@@ -152,14 +153,14 @@ func _copy(id: int) -> void:
 
 func rename_chat(id: String) -> void:
 	var chat: Dictionary = store.find(id)
-	if not chat.is_empty(): _open_form("rename_chat",id,"Переименовать чат",str(chat.title),"Сохранить")
+	if not chat.is_empty(): _open_form("rename_chat",id,L.text("Переименовать чат"),str(chat.title),L.text("Сохранить"))
 
 func _open_form(mode: String, target: String, title: String, text: String, confirm: String) -> void:
 	_form_mode = mode
 	_form_target = target
 	form.title = title
 	form.ok_button_text = confirm
-	name_field.placeholder_text = "Название раздела" if mode != "rename_chat" else "Название чата"
+	name_field.placeholder_text = L.text("Название раздела") if mode != "rename_chat" else L.text("Название чата")
 	name_field.text = text
 	form.get_ok_button().disabled = text.strip_edges().is_empty()
 	form.popup_centered(Vector2i(520,160))
@@ -181,7 +182,7 @@ func show_section(id: String) -> void:
 
 func _section_action(id: int) -> void:
 	if id == 1:
-		_open_form("rename_section",_section_target,"Переименовать раздел",str(store.section(_section_target).get("title","")),"Сохранить")
+		_open_form("rename_section",_section_target,L.text("Переименовать раздел"),str(store.section(_section_target).get("title","")),L.text("Сохранить"))
 	elif id == 2: store.remove_section(_section_target)
 
 func handle_key(event: InputEvent) -> bool:

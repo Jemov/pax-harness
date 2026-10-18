@@ -1,4 +1,5 @@
 extends VBoxContainer
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Message identity and chart controls survive status, usage and stream updates.
 const Content = preload("res://mods/pax_harness/src/ui/markdown/chat_markdown_view.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
@@ -38,16 +39,21 @@ func update_message(ui: Node, message: Dictionary) -> void:
 	var references: Array = []
 	for reference: Dictionary in message.get("references",[]):
 		var target: Dictionary = ui.store.find(str(reference.id))
-		references.append([reference,target.get("title",reference.get("title","Удалённый чат")),target.is_empty()])
-	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status") == "queued"]
+		references.append([reference,target.get("title",reference.get("title",L.text("Удалённый чат"))),target.is_empty()])
+	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status")]
 	if _header_state != header:
 		_header_state = header.duplicate(true); ui._clear(_header)
-		_header.add_child(ui._label(("Вы" if role == "user" else "✦  "+ui.agent_name.display_name)+"   ·   "+str(message.get("date","")),13,ui.QUIET if role == "user" else ui.ACCENT))
+		_header.add_child(ui._label((L.text("Вы") if role == "user" else "✦  "+ui.agent_name.display_name)+"   ·   "+str(message.get("date","")),13,ui.QUIET if role == "user" else ui.ACCENT))
 		for reference: Array in references:
 			var link: Button = ui._button("@ "+str(reference[1]),ui.owner_mod.chat_select.bind(str(reference[0].id)))
-			link.disabled = reference[2]; link.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			link.set_meta("mod_user_text",true); link.disabled = reference[2]; link.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			link.add_theme_color_override("font_color",ui.ACCENT); _header.add_child(link)
-		if not message.get("origin",{}).is_empty(): _header.add_child(ui._label("Из чата «"+str(message.origin.get("title",""))+"»"+(" · в очереди" if message.get("status") == "queued" else ""),12,ui.QUIET))
+		if not message.get("origin",{}).is_empty(): _header.add_child(ui._label(L.text("Из чата «")+str(message.origin.get("title",""))+"»"+(L.text(" · в очереди") if message.get("status") == "queued" else ""),12,ui.QUIET))
+		if role == "user" and message.get("status") == "queued":
+			var cancel: Button = ui._button(L.text("В очереди · отменить"),ui.owner_mod.chat_cancel_queued.bind(str(message.id)))
+			_header.add_child(cancel)
+		elif role == "user" and message.get("status") == "cancelled": _header.add_child(ui._label(L.text("Отправка отменена"),12,ui.QUIET))
+
 	var events: Array = [message.get("events",[]),message.get("status"),message.has("stream"),message.get("elapsed_ms",0),ui._expanded]
 	if _event_state != events:
 		ui._clear(_events)
@@ -78,8 +84,16 @@ func _update_summary(ui: Node, message: Dictionary) -> void:
 	_header_state = state.duplicate(true); ui._clear(_header)
 	var caption: String = str(message.get("text",""))
 	if message.get("status") == "complete" and message.has("compressed_items"):
-		caption = "compact · Сжато элементов истории: %d (токенов: ~%s)" % [int(message.compressed_items),Metrics.exact(int(message.get("compressed_tokens_estimate",0)))]
+		caption = L.text("compact · Сжато элементов истории: %d (токенов: ~%s)") % [int(message.compressed_items),Metrics.exact(int(message.get("compressed_tokens_estimate",0)))]
 	var marker: Button = ui._button(("▾  " if state[1] else "▸  ")+caption,ui._toggle.bind(key))
 	marker.alignment = HORIZONTAL_ALIGNMENT_LEFT; marker.add_theme_color_override("font_color",ui.QUIET)
 	_header.add_child(marker); _events.hide()
 	_content.update_content(ui,str(message.get("summary","")) if state[1] else "")
+
+func apply_preferences(ui: Node) -> void:
+	_event_state.clear()
+	if not is_instance_valid(_content): return
+	var size: int = int(ui.Preferences.value(ui.owner_mod,"dialog_font_size"))
+	for node: Node in _content.find_children("*","RichTextLabel",true,false): node.add_theme_font_size_override("normal_font_size",size)
+	for node: Node in _content.find_children("*","Control",true,false):
+		if (node is Label or node is Button) and node.get_meta("mod_user_text",false): node.add_theme_font_size_override("font_size",size)

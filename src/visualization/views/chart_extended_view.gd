@@ -63,7 +63,7 @@ func _series_plot() -> void:
  var bounds: Vector2 = _bounds(spec.series,["values","lower","upper"],spec.type == "combo")
  if is_bump: bounds.x = 1; bounds.y = maxf(2,bounds.y)
  var area: Rect2 = _area()
- _axes(area,bounds.y if is_bump else bounds.x,bounds.x if is_bump else bounds.y,0,spec.labels.size()-1,spec.labels,{"y_ticks":not is_bump,"y":"Место · 1 — первое" if is_bump else spec.get("y_label",spec.get("unit",""))})
+ _axes(area,bounds.y if is_bump else bounds.x,bounds.x if is_bump else bounds.y,0,spec.labels.size()-1,spec.labels,{"y_ticks":not is_bump,"y":L.text("Место · 1 — первое") if is_bump else spec.get("y_label",spec.get("unit",""))})
  if is_bump:
   var tick_count: int = mini(5,int(bounds.y))
   for tick: int in tick_count:
@@ -87,7 +87,7 @@ func _series_plot() -> void:
    if spec.type == "interval" or spec.type == "errorbar":
     var lower: Vector2 = _at(area,i,row.values.size(),float(row.lower[i]),bounds,true)
     var upper: Vector2 = _at(area,i,row.values.size(),float(row.upper[i]),bounds,true)
-    description += "\nГраницы: "+_amount(row.lower[i])+" — "+_amount(row.upper[i])
+    description += L.text("\nГраницы: ")+_amount(row.lower[i])+" — "+_amount(row.upper[i])
     if spec.type == "interval" and has_previous:
      _fill(PackedVector2Array([prev_upper,upper,lower,prev_lower]),Color(color,0.18))
     if spec.type == "errorbar":
@@ -129,7 +129,7 @@ func _dumbbell() -> void:
   for s: int in 2:
    var n: Variant = spec.series[s].values[i]
    if n != null: draw_circle(Vector2(ax if s == 0 else bx,center_y),5,COLORS[s],true,-1,true)
-  _entry(Rect2(left-7,y,area.size.x+14,heights[i]),str(spec.labels[i])+"\n"+str(spec.series[0].name)+": "+("нет данных" if a == null else _amount(a))+"\n"+str(spec.series[1].name)+": "+("нет данных" if b == null else _amount(b)),str(spec.labels[i]))
+  _entry(Rect2(left-7,y,area.size.x+14,heights[i]),str(spec.labels[i])+"\n"+str(spec.series[0].name)+": "+(L.text("нет данных") if a == null else _amount(a))+"\n"+str(spec.series[1].name)+": "+(L.text("нет данных") if b == null else _amount(b)),str(spec.labels[i]))
   y += float(heights[i])
 func _scale_horizontal(area: Rect2, bounds: Vector2) -> void:
  var ticks: int = 5 if area.size.x >= 400 else 3
@@ -165,7 +165,7 @@ func _calendar() -> void:
  var cell: float = minf(24,(size.x-46)/columns)
  var strips: int = ceili(float(weeks)/columns); var strip_h: float = cell*7+55
  _grow_height(strips*strip_h+45)
- var weekdays := ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"]
+ var weekdays := [L.text("Пн"),L.text("Вт"),L.text("Ср"),L.text("Чт"),L.text("Пт"),L.text("Сб"),L.text("Вс")]
  for strip: int in strips:
   var top: float = 34+strip*strip_h
   var start: int = monday+strip*columns*7
@@ -185,8 +185,8 @@ func _calendar() -> void:
     var color: Color = Color("#272e39") if value == null else _color(float(value),low,high)
     draw_style_box(Style.box(color,2,Color.TRANSPARENT,0),rect)
     var date: Dictionary = Time.get_datetime_dict_from_unix_time(day*86400)
-    _entry(rect,"%04d-%02d-%02d"%[date.year,date.month,date.day]+"\n"+("Нет данных" if value == null else _amount(value)))
- _fit("Нет данных ≠ 0 · Пн → Вс · "+Chart.number(low)+" … "+Chart.number(high),Rect2(10,size.y-28,size.x-20,20),Color("#8798af"),HORIZONTAL_ALIGNMENT_LEFT)
+    _entry(rect,"%04d-%02d-%02d"%[date.year,date.month,date.day]+"\n"+(L.text("Нет данных") if value == null else _amount(value)))
+ _fit(L.text("Нет данных ≠ 0 · Пн → Вс · ")+Chart.number(low)+" … "+Chart.number(high),Rect2(10,size.y-28,size.x-20,20),Color("#8798af"),HORIZONTAL_ALIGNMENT_LEFT)
 
 func _geographic() -> void:
  var available := Rect2(24,30,size.x-48,size.y-72)
@@ -247,7 +247,7 @@ func _geographic() -> void:
   _entry(Rect2(p-Vector2.ONE*maxf(4,radius),Vector2.ONE*maxf(8,radius*2)),str(node.label)+("\n"+_amount(node.value) if node.has("value") else ""),str(node.label))
   hits[-1].center = p; hits[-1].radius = maxf(4,radius); hits[-1].node_ids = [node.id]
   if node.has("region_id"): hits[-1].region = {"id":node.region_id,"label":node.label,"body":str(spec.get("body",""))}
- _fit("Площадь символа — значение" if spec.type == "symbol_map" else "Стрелка — направление · толщина — объём потока",Rect2(10,size.y-28,size.x-20,24),Color("#8fa1ba"),HORIZONTAL_ALIGNMENT_LEFT)
+ _fit(L.text("Площадь символа — значение") if spec.type == "symbol_map" else L.text("Стрелка — направление · толщина — объём потока"),Rect2(10,size.y-28,size.x-20,24),Color("#8fa1ba"),HORIZONTAL_ALIGNMENT_LEFT)
 func _project(point: Array) -> Vector2: return _map_rect.position+Vector2(float(point[0]),float(point[1]))*_map_rect.size
 func _hierarchy() -> void:
  var nodes := {}; var children := {}; var root_id := ""
@@ -348,7 +348,7 @@ func _multiples() -> void:
   draw_style_box(Style.box(Color("#202731"),5,Color.TRANSPARENT,0),Rect2(offset,Vector2(width-10,panel_height-10)))
   _fit(str(row.title),Rect2(offset+Vector2(10,8),Vector2(width-30,36)),Color("#d7e3f5"),HORIZONTAL_ALIGNMENT_LEFT)
   var area := Rect2(offset+Vector2(48,54),Vector2(width-74,118))
-  if row.values.all(func(n: Variant): return n == null): _fit("Нет данных",Rect2(area.position+Vector2(0,42),Vector2(area.size.x,24)),Color("#8395ae"))
+  if row.values.all(func(n: Variant): return n == null): _fit(L.text("Нет данных"),Rect2(area.position+Vector2(0,42),Vector2(area.size.x,24)),Color("#8395ae"))
   for tick: int in 3:
    var y: float = area.position.y+float(tick)/2*area.size.y
    draw_line(Vector2(area.position.x,y),Vector2(area.end.x,y),Color(1,1,1,0.07),1,true)

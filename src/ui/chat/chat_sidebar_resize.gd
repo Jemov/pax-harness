@@ -1,4 +1,5 @@
 extends Control
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## A narrow drag handle; width is a UI preference, independent of campaign data.
 const DEFAULT_WIDTH := 230.0
 var ui: Node
@@ -17,7 +18,7 @@ func setup(value: Node, side: Control) -> void:
 	custom_minimum_size.x = 8
 	mouse_default_cursor_shape = Control.CURSOR_HSPLIT
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	tooltip_text = "Потяните, чтобы изменить ширину списка чатов"
+	tooltip_text = L.text("Потяните, чтобы изменить ширину списка чатов")
 	sidebar.custom_minimum_size.x = minimum_width
 	minimum_width = maxf(minimum_width,sidebar.get_combined_minimum_size().x)
 	if ui.owner_mod.has_method("get_setting"):

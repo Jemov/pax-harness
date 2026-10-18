@@ -1,4 +1,5 @@
 extends VBoxContainer
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Native, resize-aware charts. The complete data stays in the saved message.
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
 const Text = preload("res://mods/pax_harness/src/visualization/chart_text.gd")
@@ -22,6 +23,7 @@ func _show_caption_keys(entries: Array) -> void:
 	for entry: Dictionary in entries:
 		var item := Label.new()
 		item.text = str(entry.code)+"  "+str(entry.text)
+		item.set_meta("mod_user_text",true)
 		item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		item.add_theme_font_size_override("font_size",12)
 		item.add_theme_color_override("font_color",entry.get("color",Color("#b9c3d3")))
@@ -35,12 +37,13 @@ func setup(value: Dictionary) -> void:
 	add_theme_constant_override("separation", 12)
 	var heading := Label.new()
 	heading.text = str(spec.title)
+	heading.set_meta("mod_user_text",true)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.add_theme_font_size_override("font_size", 17)
 	add_child(heading)
 	if spec.get("basis","observed") != "observed":
 		var caption := Label.new()
-		caption.text = "Сценарный расчёт" if spec.basis == "scenario" else "Прогноз"
+		caption.text = L.text("Сценарный расчёт") if spec.basis == "scenario" else L.text("Прогноз")
 		caption.add_theme_color_override("font_color",Color("#d4b578"))
 		add_child(caption)
 	controls = preload("res://mods/pax_harness/src/visualization/controls/chart_controls.gd").new()
@@ -70,7 +73,7 @@ func apply_display(value: Dictionary) -> void:
 	var data: Dictionary = Chart.validate(value)
 	if data.is_empty():
 		controls.viewport = null
-		var empty := Label.new(); empty.text = "По этому фильтру нет данных. Измените фильтр или нажмите «Сброс»."; empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _body.add_child(empty)
+		var empty := Label.new(); empty.text = L.text("По этому фильтру нет данных. Измените фильтр или нажмите «Сброс»."); empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; _body.add_child(empty)
 		return
 	_build_display(data)
 	if previous_zoom != 1: controls.viewport.change_zoom(previous_zoom)
@@ -109,15 +112,17 @@ func _build_display(spec: Dictionary) -> void:
 		for index: int in spec.series.size():
 			var item := Label.new()
 			item.text = "●  "+str(spec.series[index].name)
+			item.set_meta("mod_user_text",true)
 			item.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			item.add_theme_color_override("font_color", COLORS[index])
 			legend.add_child(item)
 		_body.add_child(legend)
 	var source := Label.new()
 	var source_name: String = str(spec.source)
-	for pair: Array in [["orders.failed","Архив проваленных планов"],["history.read","История мира"],["resources.read","Запасы ресурсов"],["money.read","Казна"],["statistics","сохранённая статистика"]]:
+	for pair: Array in [["orders.failed",L.text("Архив проваленных планов")],["history.read",L.text("История мира")],["resources.read",L.text("Запасы ресурсов")],["money.read",L.text("Казна")],["statistics",L.text("сохранённая статистика")]]:
 		source_name = source_name.replace(pair[0],pair[1])
-	source.text = "Источник: "+source_name
+	source.text = L.text("Источник: ")+source_name
+	source.set_meta("mod_user_text",true)
 	source.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	source.add_theme_font_size_override("font_size", 12)
 	source.add_theme_color_override("font_color", Color("#949ba7"))

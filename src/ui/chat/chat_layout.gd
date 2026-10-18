@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Icons = preload("res://mods/pax_harness/src/ui/components/chat_icons.gd")
 const Workspace = preload("res://mods/pax_harness/src/ui/chat/workspace_ui.gd")
@@ -18,7 +19,7 @@ static func sidebar_footer(ui: Node, column: VBoxContainer) -> Button:
 	footer.name = "SidebarActions"
 	footer.add_theme_constant_override("separation",6)
 	column.add_child(footer)
-	var detach: Button = ui._button("Отдельное окно",func(): ui.window_manager.toggle_external())
+	var detach: Button = ui._button(L.text("Отдельное окно"),func(): ui.window_manager.toggle_external())
 	detach.name = "DetachChats"
 	detach.icon = Icons.make("external",ui.QUIET,16)
 	detach.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -42,13 +43,14 @@ static func header(ui: Node, body: VBoxContainer, detach: Button) -> void:
 	heading.add_child(ui.title_group)
 	ui.title_label = ui._label("",16,ui.TEXT)
 	ui.title_label.name = "ChatTitleText"
+	ui.title_label.set_meta("mod_user_text",true)
 	ui.title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	ui.title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ui.title_label.clip_text = true
 	ui.title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	ui.title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.title_group.add_child(ui.title_label)
-	ui.title_edit_button = icon_button(ui,"edit",ui._begin_title,"Переименовать чат",24)
+	ui.title_edit_button = icon_button(ui,"edit",ui._begin_title,L.text("Переименовать чат"),24)
 	ui.title_edit_button.name = "EditChatTitle"
 	for state: String in ["normal","hover","pressed","focus"]:
 		ui.title_edit_button.add_theme_stylebox_override(state,Style.box(Color("#292c32") if state == "hover" else Color.TRANSPARENT,4,Color.TRANSPARENT,0))
@@ -56,20 +58,20 @@ static func header(ui: Node, body: VBoxContainer, detach: Button) -> void:
 	ui.title_field = LineEdit.new()
 	ui.title_field.name = "ChatTitle"
 	ui.title_field.max_length = 100
-	ui.title_field.placeholder_text = "Название чата"
+	ui.title_field.placeholder_text = L.text("Название чата")
 	ui.title_field.text_submitted.connect(func(_text: String): ui._rename())
 	ui.title_field.focus_exited.connect(ui._rename)
 	ui.title_field.gui_input.connect(ui._title_key)
 	ui.title_group.add_child(ui.title_field)
 	ui.title_field.hide()
 	ui.title_group.resized.connect(ui._layout_title)
-	var instructions: Button = icon_button(ui,"instructions",func(): Workspace.edit(ui),"Инструкции чата")
+	var instructions: Button = icon_button(ui,"instructions",func(): Workspace.edit(ui),L.text("Инструкции чата"))
 	instructions.name = "Instructions"
 	heading.add_child(instructions)
 	ui.window_manager = preload("res://mods/pax_harness/src/ui/chat/chat_window.gd").new()
 	ui.add_child(ui.window_manager)
 	ui.window_manager.setup(ui,panel,ui.title_group,heading,detach)
-	var cross: Button = icon_button(ui,"close",ui.close,"Закрыть · Esc")
+	var cross: Button = icon_button(ui,"close",ui.close,L.text("Закрыть · Esc"))
 	cross.name = "CloseChats"
 	heading.add_child(cross)
 	body.add_child(HSeparator.new())
@@ -98,7 +100,7 @@ static func composer(ui: Node, body: VBoxContainer) -> void:
 	ui.input = TextEdit.new()
 	ui.input.name = "ChatInput"
 	ui.input.custom_minimum_size.y = 42
-	ui.input.placeholder_text = "Сообщение помощнику…"
+	ui.input.placeholder_text = L.text("Сообщение помощнику…")
 	ui.input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	ui.input.add_theme_font_override("font",ui.surface.theme.default_font)
 	for state: String in ["normal","focus","read_only"]:
@@ -114,17 +116,17 @@ static func composer(ui: Node, body: VBoxContainer) -> void:
 	fields.add_child(actions)
 	var space := Control.new(); space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(space)
-	ui.mic_button = icon_button(ui,"mic",func(): ui.native.mic_toggled.emit(),"Голосовой ввод",28)
+	ui.mic_button = icon_button(ui,"mic",func(): ui.native.mic_toggled.emit(),L.text("Голосовой ввод"),28)
 	ui.mic_button.name = "ChatMicrophone"
 	for state: String in ["normal","hover","pressed","focus","disabled"]:
 		var mic_style: StyleBoxFlat = Style.box(Color("#292c32") if state == "hover" else Color.TRANSPARENT,6,Color.TRANSPARENT,0)
 		mic_style.set_corner_radius_all(14)
 		ui.mic_button.add_theme_stylebox_override(state,mic_style)
 	actions.add_child(ui.mic_button)
-	ui.stop_button = icon_button(ui,"stop",func(): ui.owner_mod.chat_stop(),"Остановить ответ")
+	ui.stop_button = icon_button(ui,"stop",func(): ui.owner_mod.chat_stop(),L.text("Остановить ответ"))
 	ui.stop_button.name = "StopChatTurn"
 	actions.add_child(ui.stop_button)
-	ui.send_button = icon_button(ui,"send",ui._send,"Отправить")
+	ui.send_button = icon_button(ui,"send",ui._send,L.text("Отправить"))
 	ui.send_button.name = "SendChatMessage"
 	ui.send_button.icon = Icons.make("send",Color.WHITE)
 	ui.send_button.add_theme_color_override("icon_disabled_color",ui.QUIET)

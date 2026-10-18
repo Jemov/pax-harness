@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Durable goals and explicit player rules, scoped to the save and chat.
 static func revision(value: Variant) -> String: return JSON.stringify(value).sha256_text()
 
@@ -46,7 +47,7 @@ static func trace(store: RefCounted, name: String, args: Dictionary, scope: Dict
 		return {"ok":not events.is_empty(),"code":"trace.record_not_found" if events.is_empty() else "complete","result":{"recorded_observations":events,"executed":false,"historical":true,"current_world_verified":false}}
 	if args.has("field"):
 		if args.get("call_id","") == "": return {"ok":false,"code":"trace.call_id_required"}
-		if events.is_empty(): return {"ok":false,"code":"trace.record_not_found","result":{"message":"Запись с этим ID не найдена в данном чате. Проверьте ID. Вызов, отклонённый до выполнения, не имеет результата инструмента."}}
+		if events.is_empty(): return {"ok":false,"code":"trace.record_not_found","result":{"message":L.text("Запись с этим ID не найдена в данном чате. Проверьте ID. Вызов, отклонённый до выполнения, не имеет результата инструмента.")}}
 		var event: Dictionary = events[0].event
 		var receipt: Dictionary = event.get("receipt",event)
 		var field: String = str(args.field)

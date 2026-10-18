@@ -1,8 +1,9 @@
 extends Control
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## A display name shared by chats; persisted through the mod's UI preferences.
 const Layout = preload("res://mods/pax_harness/src/ui/chat/chat_layout.gd")
 var ui: Node
-var display_name := "ВИ"
+var display_name := L.text("ВИ")
 var label: Label
 var pencil: Button
 var field: LineEdit
@@ -14,17 +15,18 @@ func setup(value: Node) -> void:
 	custom_minimum_size.y = 32
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if ui.owner_mod.has_method("get_setting"):
-		var saved: Variant = ui.owner_mod.get_setting("agent_display_name","ВИ")
+		var saved: Variant = ui.owner_mod.get_setting("agent_display_name",L.text("ВИ"))
 		if saved is String and not _clean(saved).is_empty(): display_name = _clean(saved)
 	label = ui._label("✦  "+display_name,19,ui.ACCENT)
 	label.name = "AgentNameText"
+	label.set_meta("mod_user_text",true)
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.clip_text = true
 	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
-	pencil = Layout.icon_button(ui,"edit",begin_edit,"Переименовать агента",24)
+	pencil = Layout.icon_button(ui,"edit",begin_edit,L.text("Переименовать агента"),24)
 	pencil.name = "EditAgentName"
 	# Match the chat title's pencil, including its quiet hover style.
 	for state: String in ["normal","hover","pressed","focus"]:
@@ -33,7 +35,7 @@ func setup(value: Node) -> void:
 	field = LineEdit.new()
 	field.name = "AgentNameInput"
 	field.max_length = 64
-	field.placeholder_text = "Имя агента"
+	field.placeholder_text = L.text("Имя агента")
 	field.text_submitted.connect(func(_text: String): commit())
 	field.focus_exited.connect(commit)
 	add_child(field)

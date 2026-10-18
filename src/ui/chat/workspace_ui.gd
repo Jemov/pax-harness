@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const InstructionsDialog = preload("res://mods/pax_harness/src/ui/chat/instructions_dialog.gd")
 ## Plan disclosure and player-editable rules. No extra permanent footer panels.
 static func render(ui: Node) -> void:
@@ -9,7 +10,7 @@ static func render(ui: Node) -> void:
 	ui.feed.add_child(block)
 	var done: int = plan.get("steps",[]).filter(func(step: Dictionary): return step.get("status") == "done").size()
 	var key: String = "plan:"+ui.store.selected
-	var button: Button = ui._button(("▾  " if ui._expanded.get(key,false) else "▸  ")+"План · "+str(done)+"/"+str(plan.get("steps",[]).size())+" · "+str(plan.get("goal","")),ui._toggle.bind(key))
+	var button: Button = ui._button(("▾  " if ui._expanded.get(key,false) else "▸  ")+L.text("План · ")+str(done)+"/"+str(plan.get("steps",[]).size())+" · "+str(plan.get("goal","")),ui._toggle.bind(key))
 	button.name = "TaskPlan"
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.clip_text = true

@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Pure table operations. Every input cell survives normalization and CSV export.
 const PAGE_SIZE := 50
 
@@ -11,9 +12,9 @@ static func normalize(block: Dictionary) -> Dictionary:
 			rows.append(input.duplicate(true)); width = maxi(width,input.size())
 	width = maxi(1,width)
 	var extra: int = maxi(int(block.get("extra_columns",0)),maxi(0,width-headers.size()))
-	while headers.size() < width: headers.append("Столбец "+str(headers.size()+1))
+	while headers.size() < width: headers.append(L.text("Столбец ")+str(headers.size()+1))
 	for column: int in width:
-		if str(headers[column]).strip_edges().is_empty(): headers[column] = "Столбец "+str(column+1)
+		if str(headers[column]).strip_edges().is_empty(): headers[column] = L.text("Столбец ")+str(column+1)
 	for row: Array in rows:
 		while row.size() < width: row.append("")
 	var align: Array = block.get("alignments",[]).duplicate()
@@ -30,7 +31,7 @@ static func normalize(block: Dictionary) -> Dictionary:
 	return {"headers":headers,"rows":rows,"alignments":align,"numeric":numeric,"extra_columns":extra,"title":str(block.get("title","")),"source":str(block.get("source",""))}
 
 static func missing(value: Variant) -> bool:
-	return value == null or str(value).strip_edges().to_lower() in ["","—","–","-","n/a","null","нет данных"]
+	return value == null or str(value).strip_edges().to_lower() in ["","—","–","-","n/a","null",L.text("нет данных")]
 
 static func number(value: Variant) -> Variant:
 	if value is int or value is float: return float(value) if is_finite(float(value)) else null

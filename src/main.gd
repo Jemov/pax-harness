@@ -1,4 +1,5 @@
 extends PaxMod
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Independent chat/runtime owner. The laboratory is an optional prompt compiler.
 const StockCompat = preload("res://mods/pax_harness/src/core/stock_compat.gd")
 const RuntimeTools = preload("res://mods/pax_harness/src/runtime/tools/registry.gd")
@@ -61,7 +62,12 @@ var _transport_provider: Node
 var _model_defaults: Dictionary = {}
 var _lab_used: bool = false
 
+var _localization: Node
+
 func _mod_loaded() -> void:
+	L.configure(load_json("data/lang/ru.json",{}),load_json("data/lang/en.json",{}))
+	_localization = L.new(); add_child(_localization); _localization.setup(_localization_roots)
+	_localization.language_changed.connect(_language_changed)
 	_model_defaults = load_json("config/model_defaults.json",{})
 	chat_compactor = load_resource("src/chat/chat_compact.gd").new()
 	chat_compactor.setup(self)
@@ -166,6 +172,8 @@ func _days_passed(game: PaxGame, _from_day: int, _days: int) -> void:
 	if _game_available(game) and resource_history != null: resource_history.capture(game,true)
 
 func _mod_unloaded() -> void:
+	if is_instance_valid(_localization): _localization.queue_free()
+	_localization = null
 	if is_instance_valid(_settings_ui):
 		_settings_ui.dispose()
 		_settings_ui.queue_free()
@@ -235,11 +243,11 @@ func ui_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictiona
 	if name == "ui.open" and arguments.get("panel") == "settings.harness":
 		return {"ok":true,"result":{"panel":"settings.harness","visible":true,"navigation_only":true,"settings_modified":false}} if is_instance_valid(_settings_ui) and _settings_ui.open() else {"ok":false,"code":"ui.panel_unavailable"}
 	var result: Dictionary = _ui_capture.execute(_game,name,arguments,scope)
-	if name == "ui.panels" and result.get("ok",false) and is_instance_valid(_settings_ui): result.result.panels.append({"id":"settings.harness","title":"Настройки · Харнес"})
+	if name == "ui.panels" and result.get("ok",false) and is_instance_valid(_settings_ui): result.result.panels.append({"id":"settings.harness","title":L.text("Настройки · Харнес")})
 	return result
 
 func image_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
-	return _image_generation.execute(_game,name,arguments,scope) if is_instance_valid(_image_generation) and _game_available() else {"ok":false,"code":"images.world_unavailable","result":{"message":"Генератор доступен после загрузки партии."}}
+	return _image_generation.execute(_game,name,arguments,scope) if is_instance_valid(_image_generation) and _game_available() else {"ok":false,"code":"images.world_unavailable","result":{"message":L.text("Генератор доступен после загрузки партии.")}}
 
 func generation_output_limit(fallback: int, small_request: bool = false) -> int:
 	var tuning: Node = _tuning()
@@ -490,7 +498,7 @@ func chat_send_with_refs(text: String, refs: Array) -> bool:
 		if not _game_available() or chat_busy(): return false
 		_current_provider()
 		var compacted: Dictionary = chat_compactor.manual(chat_store.selected,text.strip_edges().trim_prefix("/compact").strip_edges())
-		if not compacted.ok and is_instance_valid(chat_ui): chat_ui.status.text = "Пока нечего сжимать." if compacted.code == "nothing_to_compact" else "Сжатие недоступно: "+str(compacted.code)
+		if not compacted.ok and is_instance_valid(chat_ui): chat_ui.status.text = L.text("Пока нечего сжимать.") if compacted.code == "nothing_to_compact" else L.text("Сжатие недоступно: ")+str(compacted.code)
 		return compacted.ok
 	return _chat_send_to(chat_store.selected if chat_store != null else "",text,refs)
 
@@ -501,12 +509,12 @@ func _chat_send_to(chat_id: String, text: String, refs: Array = [], origin: Dict
 	main.player.assistant_history = chat_store.context(chat_id)
 	_chat_pending = chat_store.begin(text,_game.date_text(),chat_id,refs,origin,existing_user)
 	if provider != null and provider.has_method("why_offline") and str(provider.why_offline()) == "off":
-		chat_store.finish(_chat_pending,"ИИ отключён правилами сценария или модом. Для работы чата включите ИИ в настройках отключившего его мода.",false,"ai_disabled_by_world")
+		chat_store.finish(_chat_pending,L.text("ИИ отключён правилами сценария или модом. Для работы чата включите ИИ в настройках отключившего его мода."),false,"ai_disabled_by_world")
 		_chat_pending.clear()
 		main.player.assistant_history = chat_store.context()
 		return true
 	if provider != null and not _provider_defaults(provider).get("chat_supported",true):
-		chat_store.finish(_chat_pending,"Эта модель отвечает только вероятностями на типизированные вопросы. Она не поддерживает чат, текстовые ответы и инструменты построения графиков. Выберите разговорную модель.",false,"provider_not_chat_model")
+		chat_store.finish(_chat_pending,L.text("Эта модель отвечает только вероятностями на типизированные вопросы. Она не поддерживает чат, текстовые ответы и инструменты построения графиков. Выберите разговорную модель."),false,"provider_not_chat_model")
 		_chat_pending.clear()
 		main.player.assistant_history = chat_store.context()
 		return true
@@ -535,6 +543,15 @@ func _chat_send_ready(text: String, target: Dictionary, generation: int) -> void
 		_chat_poll_native()
 	main.player.assistant_history = chat_store.context()
 
+func chat_enqueue(text: String, refs: Array = []) -> bool:
+	if not _game_available() or chat_store == null: return false
+	var accepted: bool = chat_store.enqueue_user(text,_game.date_text(),refs)
+	if accepted: _chat_pump.call_deferred()
+	return accepted
+
+func chat_cancel_queued(message_id: String) -> void:
+	if chat_store != null: chat_store.cancel_queued(message_id)
+
 func _chat_pump() -> void:
 	if not _game_available() or chat_store == null or chat_busy(): return
 	for delivery: Dictionary in chat_store.deliveries:
@@ -542,9 +559,13 @@ func _chat_pump() -> void:
 		if chat_store.find(str(delivery.target_id)).is_empty():
 			delivery.status = "interrupted"
 			continue
-		if _chat_send_to(str(delivery.target_id),str(delivery.text),[],delivery.origin,str(delivery.user_message_id)):
-			delivery.status = "running"
+		delivery.status = "running"
+		if _chat_send_to(str(delivery.target_id),str(delivery.text),delivery.get("references",[]),delivery.origin,str(delivery.user_message_id)):
+			if delivery.status == "running" and not chat_busy():
+				var messages: Array = chat_store.find(str(delivery.target_id)).messages
+				delivery.status = "complete" if not messages.is_empty() and messages[-1].get("status") == "complete" else "interrupted"
 			chat_store.changed.emit()
+		else: delivery.status = "queued"
 		return
 
 func chat_context_limit() -> int:
@@ -557,7 +578,7 @@ func chat_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictio
 func chat_stop() -> void:
 	if chat_compactor != null: chat_compactor.cancel()
 	if not _chat_pending.is_empty() and chat_store != null:
-		chat_store.finish(_chat_pending,"Ответ остановлен.",false,"cancelled")
+		chat_store.finish(_chat_pending,L.text("Ответ остановлен."),false,"cancelled")
 		_chat_pending.clear()
 	for task_id: String in _router._tasks.keys():
 		var task: Dictionary = _router._tasks[task_id]
@@ -568,6 +589,8 @@ func chat_stop() -> void:
 			chat_store.cancel_deliveries(str(task.get("chat_target",{}).get("message_id","")))
 			_runtime.cancel(str(task.runtime_token))
 			for channel: String in channels: chat_stream.cancel(channel)
+
+	_chat_pump.call_deferred()
 
 func _chat_capture(task: Dictionary) -> void:
 	if task.channel != "assistant" or chat_store == null: return
@@ -602,23 +625,26 @@ func _chat_done(task: Dictionary, result: Dictionary) -> void:
 	chat_compactor.retire(str(task.get("id","")))
 	var delivery_id: String = str(task.chat_target.get("origin",{}).get("delivery_id",""))
 	for delivery: Dictionary in chat_store.deliveries:
-		if delivery.id == delivery_id: delivery.status = "complete" if ok else "interrupted"
+		if delivery.id == delivery_id or delivery.get("user_message_id") == task.chat_target.get("user_message_id"): delivery.status = "complete" if ok else "interrupted"
 	_chat_pump.call_deferred()
 	if task.chat_target.chat_id == chat_store.selected and _game_available(): _game.main.player.assistant_history = chat_store.context()
 
 func _chat_error(code: String) -> String:
-	if code == "cancelled": return "Ответ остановлен."
-	if code == "agent_round_limit" or code == "agent_call_limit": return "Достигнут предел шагов за один ответ. Посмотрите выполненные действия выше; продолжить можно следующим сообщением."
-	return str(load_resource("src/core/runtime_error.gd").make(code).message)+" Выполненные шаги сохранены в чате."
+	if code == "cancelled": return L.text("Ответ остановлен.")
+	if code == "agent_round_limit" or code == "agent_call_limit": return L.text("Достигнут предел шагов за один ответ. Посмотрите выполненные действия выше; продолжить можно следующим сообщением.")
+	return str(load_resource("src/core/runtime_error.gd").make(code).message)+L.text(" Выполненные шаги сохранены в чате.")
 
 func _chat_poll_native() -> void:
 	if _chat_native_watch.is_empty() or not _game_available() or chat_store == null: return
 	var main: Node = _game.main
 	if main.ui.assistant_window._thinking: return
 	var history: Array = main.player.assistant_history
-	var reply: String = str(history.back().get("what","")) if not history.is_empty() and history.back().get("who") != "player" else "Ответ не получен."
+	var reply: String = str(history.back().get("what","")) if not history.is_empty() and history.back().get("who") != "player" else L.text("Ответ не получен.")
 	chat_store.finish(_chat_native_watch,reply)
+	for delivery: Dictionary in chat_store.deliveries:
+		if delivery.get("user_message_id") == _chat_native_watch.get("user_message_id"): delivery.status = "complete"
 	_chat_native_watch.clear()
+	_chat_pump.call_deferred()
 
 func chat_history(arguments: Dictionary, chat_id: String) -> Dictionary:
 	return chat_store.history(chat_id,arguments) if chat_store != null else {"error":"chat_unavailable"}
@@ -670,3 +696,11 @@ func _tool_registry() -> RefCounted:
 	registered.setup(_game if _game_available() else null,self,_source_generation)
 	return registered
 
+
+func _localization_roots() -> Array:
+	var roots: Array = [chat_ui]
+	if is_instance_valid(_settings_ui): roots.append_array([_settings_ui.panel,_settings_ui.tab_button])
+	return roots
+
+func _language_changed() -> void:
+	if is_instance_valid(chat_ui): chat_ui.apply_preferences()

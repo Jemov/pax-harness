@@ -1,4 +1,5 @@
 extends PanelContainer
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Frozen headers, a bounded page of contiguous cells and lossless CSV text.
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Markdown = preload("res://mods/pax_harness/src/ui/markdown/chat_markdown.gd")
@@ -43,16 +44,17 @@ func setup(ui: Node, block: Dictionary) -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_stylebox_override("panel",Style.box(Color.TRANSPARENT,0,Color.TRANSPARENT,0))
 	var layout := VBoxContainer.new(); layout.add_theme_constant_override("separation",8); add_child(layout)
-	if not spec.title.is_empty(): layout.add_child(Style.label(spec.title,16))
+	if not spec.title.is_empty():
+		var title := Style.label(spec.title,16); title.set_meta("mod_user_text",true); layout.add_child(title)
 	if spec.extra_columns > 0:
-		var warning := Style.label("В строках есть дополнительные значения. Добавлено столбцов: "+str(spec.extra_columns)+" — все данные сохранены.",12,Color("#e6bd7a"))
+		var warning := Style.label(L.text("В строках есть дополнительные значения. Добавлено столбцов: ")+str(spec.extra_columns)+L.text(" — все данные сохранены."),12,Color("#e6bd7a"))
 		warning.name = "TableWarning"; layout.add_child(warning)
 	var tools := HFlowContainer.new(); tools.add_theme_constant_override("h_separation",8); layout.add_child(tools)
-	filter_input = LineEdit.new(); filter_input.name = "TableFilter"; filter_input.placeholder_text = "Поиск по таблице"; filter_input.clear_button_enabled = true; filter_input.custom_minimum_size.x = 165
+	filter_input = LineEdit.new(); filter_input.name = "TableFilter"; filter_input.placeholder_text = L.text("Поиск по таблице"); filter_input.clear_button_enabled = true; filter_input.custom_minimum_size.x = 165
 	filter_input.text_changed.connect(func(_text: String): page = 0; _refresh())
 	tools.add_child(filter_input)
-	var csv_button: Button = _button("CSV",_show_csv); csv_button.name = "TableCSV"; csv_button.tooltip_text = "Показать CSV-текст всех отфильтрованных строк"; tools.add_child(csv_button)
-	var reset_button: Button = _button("Сброс",_reset); reset_button.tooltip_text = "Сбросить поиск и сортировку"; tools.add_child(reset_button)
+	var csv_button: Button = _button("CSV",_show_csv); csv_button.name = "TableCSV"; csv_button.tooltip_text = L.text("Показать CSV-текст всех отфильтрованных строк"); tools.add_child(csv_button)
+	var reset_button: Button = _button(L.text("Сброс"),_reset); reset_button.tooltip_text = L.text("Сбросить поиск и сортировку"); tools.add_child(reset_button)
 	horizontal_scroll = ScrollContainer.new(); horizontal_scroll.name = "TableHorizontalScroll"; horizontal_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO; horizontal_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	layout.add_child(horizontal_scroll)
 	var content := VBoxContainer.new(); content.add_theme_constant_override("separation",0); horizontal_scroll.add_child(content)
@@ -71,17 +73,17 @@ func setup(ui: Node, block: Dictionary) -> void:
 	grid = _new_grid(); body.add_child(grid)
 	_body_rules = _new_rules(body,grid)
 	var pager := HFlowContainer.new(); pager.add_theme_constant_override("h_separation",8); layout.add_child(pager)
-	previous_button = _button("←",func(): page -= 1; _refresh()); previous_button.tooltip_text = "Предыдущие 50 строк"; pager.add_child(previous_button)
+	previous_button = _button("←",func(): page -= 1; _refresh()); previous_button.tooltip_text = L.text("Предыдущие 50 строк"); pager.add_child(previous_button)
 	counter = Style.label("",12,Color("#9ca7b6")); counter.autowrap_mode = TextServer.AUTOWRAP_OFF
 	counter.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN; counter.size_flags_vertical = Control.SIZE_SHRINK_CENTER; pager.add_child(counter)
-	next_button = _button("→",func(): page += 1; _refresh()); next_button.tooltip_text = "Следующие 50 строк"; pager.add_child(next_button)
-	if not spec.source.is_empty(): layout.add_child(Style.label("Источник: "+spec.source,12,Color("#9ca7b6")))
+	next_button = _button("→",func(): page += 1; _refresh()); next_button.tooltip_text = L.text("Следующие 50 строк"); pager.add_child(next_button)
+	if not spec.source.is_empty(): layout.add_child(Style.label(L.text("Источник: ")+spec.source,12,Color("#9ca7b6")))
 	_csv_panel = VBoxContainer.new(); _csv_panel.name = "TableCSVPanel"; _csv_panel.hide(); layout.add_child(_csv_panel)
-	_csv_panel.add_child(Style.label("CSV: все строки текущего результата поиска, с учётом сортировки",12))
+	_csv_panel.add_child(Style.label(L.text("CSV: все строки текущего результата поиска, с учётом сортировки"),12))
 	csv_text = TextEdit.new(); csv_text.name = "TableCSVText"; csv_text.editable = false; csv_text.custom_minimum_size.y = 180; csv_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY; _csv_panel.add_child(csv_text)
 	var csv_tools := HFlowContainer.new(); _csv_panel.add_child(csv_tools)
-	csv_tools.add_child(_button("Копировать CSV",func(): DisplayServer.clipboard_set(csv_export())))
-	csv_tools.add_child(_button("Закрыть",func(): _csv_panel.hide()))
+	csv_tools.add_child(_button(L.text("Копировать CSV"),func(): DisplayServer.clipboard_set(csv_export())))
+	csv_tools.add_child(_button(L.text("Закрыть"),func(): _csv_panel.hide()))
 	# Kept as the outer overlay API; actual shared grid lines live inside each scroll region.
 	rules = Control.new(); rules.mouse_filter = Control.MOUSE_FILTER_IGNORE; add_child(rules)
 	_refresh()
@@ -118,16 +120,16 @@ func _cell(value: Variant, column: int, header: bool = false) -> PanelContainer:
 	var alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_RIGHT if spec.alignments[column] == "right" else HORIZONTAL_ALIGNMENT_CENTER if spec.alignments[column] == "center" else HORIZONTAL_ALIGNMENT_LEFT
 	if header:
 		var button := Button.new(); button.text = Markdown.plain_inline(text)+( (" ▼" if sort_descending else " ▲") if sort_column == column else "")
-		button.alignment = alignment; button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; button.custom_minimum_size.x = _widths[column]-20
-		button.tooltip_text = Markdown.plain_inline(text)+"\nСортировать по столбцу"; button.pressed.connect(_sort.bind(column)); Style.link(button); cell.add_child(button)
+		button.set_meta("mod_user_text",true); button.alignment = alignment; button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; button.custom_minimum_size.x = _widths[column]-20
+		button.tooltip_text = Markdown.plain_inline(text)+L.text("\nСортировать по столбцу"); button.pressed.connect(_sort.bind(column)); Style.link(button); cell.add_child(button)
 	elif text.contains("**") or text.contains("`") or text.contains("](") or text.contains("~~"):
 		var rich := RichTextLabel.new(); rich.bbcode_enabled = true; rich.fit_content = true; rich.scroll_active = false; rich.selection_enabled = true
 		rich.custom_minimum_size.x = _widths[column]-20; rich.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		rich.text = ("[right]" if alignment == HORIZONTAL_ALIGNMENT_RIGHT else "[center]" if alignment == HORIZONTAL_ALIGNMENT_CENTER else "[left]")+Markdown.inline(text)
-		rich.add_theme_font_size_override("normal_font_size",14); cell.add_child(rich)
+		rich.set_meta("mod_user_text",true); rich.add_theme_font_size_override("normal_font_size",_font_size()); cell.add_child(rich)
 	else:
-		var label := Style.label(text,14,Color("#d2d6df")); label.vertical_alignment = VERTICAL_ALIGNMENT_TOP; label.horizontal_alignment = alignment
-		label.size_flags_vertical = Control.SIZE_FILL; label.custom_minimum_size.x = _widths[column]-20; label.tooltip_text = text; cell.add_child(label)
+		var label := Style.label(text,_font_size(),Color("#d2d6df")); label.set_meta("mod_user_text",true); label.vertical_alignment = VERTICAL_ALIGNMENT_TOP; label.horizontal_alignment = alignment
+		label.size_flags_vertical = Control.SIZE_FILL; label.custom_minimum_size.x = _widths[column]-20; label.set_meta("mod_user_tooltip",true); label.tooltip_text = text; cell.add_child(label)
 	return cell
 
 func _sort(column: int) -> void:
@@ -146,7 +148,7 @@ func _refresh() -> void:
 	var first: int = page*Table.PAGE_SIZE; var last: int = mini(first+Table.PAGE_SIZE,order.size())
 	for index: int in range(first,last):
 		for column: int in spec.headers.size(): grid.add_child(_cell(spec.rows[order[index]][column],column))
-	counter.text = ("0 строк" if order.is_empty() else str(first+1)+"–"+str(last)+" из "+str(order.size()))+(" · всего "+str(spec.rows.size()) if order.size() != spec.rows.size() else "")
+	counter.text = (L.text("0 строк") if order.is_empty() else str(first+1)+"–"+str(last)+L.text(" из ")+str(order.size()))+(L.text(" · всего ")+str(spec.rows.size()) if order.size() != spec.rows.size() else "")
 	previous_button.disabled = page <= 0; next_button.disabled = last >= order.size()
 	data_scroll.scroll_vertical = 0
 	data_scroll.custom_minimum_size.y = minf(420,maxf(42,(last-first)*39.0))
@@ -162,3 +164,6 @@ func csv_export() -> String: return Table.csv(spec,order)
 
 func _show_csv() -> void:
 	csv_text.text = csv_export(); _csv_panel.show()
+
+func _font_size() -> int:
+	return int(preload("res://mods/pax_harness/src/ui/chat/chat_preferences.gd").value(_ui.owner_mod,"dialog_font_size")) if _ui != null and _ui.get("owner_mod") != null else 14

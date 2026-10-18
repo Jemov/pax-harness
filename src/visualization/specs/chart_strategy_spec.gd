@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const TYPES := ["gantt","network","sunburst"]
 static func number(v: Variant) -> bool:
 	return (v is int or v is float) and is_finite(float(v)) and absf(v) <= 1.0e15
@@ -87,5 +88,5 @@ static func plain(v: Dictionary) -> String:
 	else:
 		for row: Dictionary in v.nodes: lines.append(str(row.label)+" ["+str(row.id)+"]"+(" ← "+str(row.parent) if row.has("parent") else "")+(": "+str(row.value) if row.has("value") else ""))
 	for link: Dictionary in v.get("links",v.get("dependencies",[])): lines.append(str(link.source)+" → "+str(link.target)+(": "+str(link.value) if link.has("value") else ""))
-	lines.append("Источник: "+str(v.source))
+	lines.append(L.text("Источник: ")+str(v.source))
 	return "\n".join(lines)

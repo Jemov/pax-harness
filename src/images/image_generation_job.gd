@@ -1,4 +1,5 @@
 extends Node
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 signal completed
 const Workflow = preload("res://mods/pax_harness/src/images/image_workflow.gd")
 var service: Node
@@ -24,7 +25,7 @@ func _run() -> void:
 	if not alive(): cancel(); return
 	var artist: Node = service.native_artist(game)
 	var settings: Dictionary = service.native_configuration(artist)
-	if artist == null or settings.is_empty(): _finish(service.failure("images.not_configured","Настройте генератор изображений в Настройки → Нейросеть.")); return
+	if artist == null or settings.is_empty(): _finish(service.failure("images.not_configured",L.text("Настройте генератор изображений в Настройки → Нейросеть."))); return
 	var script: Variant = artist.get_script()
 	var service_id: String = str(settings.get("service",""))
 	_generator = script.new(); add_child(_generator)
@@ -44,7 +45,7 @@ func _run() -> void:
 	if not image is Image or image.is_empty():
 		var native_error: String = str(_generator.last_error)
 		var safe: String = native_error if native_error in ["no_service","no_link","key","money","censorship","model","catalog","workflow_rejected","workflow_failed","workflow_download_failed","workflow_timeout","workflow_empty_result"] else "generation_failed"
-		var failed: Dictionary = service.failure("images."+safe,"Генератор изображений вернул ошибку: "+safe+".")
+		var failed: Dictionary = service.failure("images."+safe,L.text("Генератор изображений вернул ошибку: ")+safe+".")
 		if not diagnostic.is_empty(): failed.result["diagnostic"] = diagnostic
 		_finish(failed); return
 	if script.has_method("_account"): script.call("_account",service_id)
@@ -54,10 +55,10 @@ func _run() -> void:
 func _process(_delta: float) -> void:
 	if finished: return
 	if not alive(): cancel()
-	elif Time.get_ticks_msec() >= _deadline: _finish(service.failure("images.timeout","Истекло время ожидания изображения; повтор автоматически не отправлен."))
+	elif Time.get_ticks_msec() >= _deadline: _finish(service.failure("images.timeout",L.text("Истекло время ожидания изображения; повтор автоматически не отправлен.")))
 
 func cancel() -> void:
-	if not finished: _finish({"ok":false,"code":"cancelled","result":{"message":"Генерация изображения остановлена."}})
+	if not finished: _finish({"ok":false,"code":"cancelled","result":{"message":L.text("Генерация изображения остановлена.")}})
 
 func _finish(value: Dictionary) -> void:
 	if finished: return

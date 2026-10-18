@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Version-bound adapter for the official documented raw Provider handle.
 ## Native cancellation fallbacks are suppressed only within their captured task.
 const Compat = preload("res://mods/pax_harness/src/core/stock_compat.gd")
@@ -248,7 +249,7 @@ func fail(task_id: String, reason: String, completion: Dictionary = {}) -> void:
 	var task: Dictionary = _tasks[task_id]
 	_owner.composition_error = {"channel":task.channel,"errors":PackedStringArray([reason])}
 	if task.channel == "assistant":
-		_render_assistant("Помощник: " + reason,task)
+		_render_assistant(L.text("Помощник: ") + reason,task)
 	else:
 		_finalize_failure(task,reason)
 	_owner._chat_done(task,completion if not completion.is_empty() else {"ok":false,"code":reason})
@@ -478,7 +479,7 @@ func _finalize_failure(task: Dictionary, reason: String) -> void:
 						if row is Dictionary and _same_id(row.get("id"),task.mark):
 							row["status"]="невозможен" if task.channel=="law" else "провалилось"
 							row["why"]="prompt_lab: "+reason
-		if main.has_method("_печать"): main._печать("Помощник: "+reason)
+		if main.has_method("_печать"): main._печать(L.text("Помощник: ")+reason)
 	if task.channel=="preset_edit":
 		for listener: Dictionary in task.listeners:
 			var consumer: Object = listener.callable.get_object()
@@ -487,7 +488,7 @@ func _finalize_failure(task: Dictionary, reason: String) -> void:
 			var button: Variant = Data.property(consumer,"кнопка")
 			if is_instance_valid(button) and button is BaseButton: button.disabled=false
 			var status: Variant = Data.property(consumer,"status")
-			if is_instance_valid(status) and status is Label: status.text="Помощник: "+reason
+			if is_instance_valid(status) and status is Label: status.text=L.text("Помощник: ")+reason
 
 
 static func _set_existing(object: Object, field: String, value: Variant) -> void:

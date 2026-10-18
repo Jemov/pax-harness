@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Bounded declarative schemas. Coordinates must come from game/map data, never inferred.
 const Strategy = preload("res://mods/pax_harness/src/visualization/specs/chart_strategy_spec.gd")
 const TYPES := ["combo","interval","errorbar","calendar_heatmap","dumbbell","slope","bump","symbol_map","flow_map","tree","icicle","parallel","small_multiples"]
@@ -127,24 +128,24 @@ static func validate(v: Dictionary) -> Dictionary:
   if not present or (kind == "combo" and (not bars or not lines)): return {}
  return v.duplicate(true)
 static func plain(v: Dictionary) -> String:
- return str(v.title)+"\n"+JSON.stringify(v,"  ")+"\nИсточник: "+str(v.source)
+ return str(v.title)+"\n"+JSON.stringify(v,"  ")+L.text("\nИсточник: ")+str(v.source)
 
 static func example(kind: String) -> Dictionary:
- var base := {"type":kind,"title":"Пример: "+kind,"source":"Учебные данные, не состояние партии","basis":"scenario","unit":"ед."}
+ var base := {"type":kind,"title":L.text("Пример: ")+kind,"source":L.text("Учебные данные, не состояние партии"),"basis":"scenario","unit":L.text("ед.")}
  var definitions := {
-  "combo":{"labels":["А","Б","В"],"series":[{"name":"Выпуск","kind":"bar","values":[10,20,16]},{"name":"Спрос","kind":"line","values":[12,18,22]}]},
-  "interval":{"labels":["1","2","3"],"series":[{"name":"Прогноз","values":[10,15,18],"lower":[8,10,11],"upper":[12,20,25]}]},
-  "errorbar":{"labels":["А","Б"],"series":[{"name":"Оценка","values":[10,20],"lower":[8,16],"upper":[12,24]}]},
+  "combo":{"labels":["А","Б","В"],"series":[{"name":L.text("Выпуск"),"kind":"bar","values":[10,20,16]},{"name":L.text("Спрос"),"kind":"line","values":[12,18,22]}]},
+  "interval":{"labels":["1","2","3"],"series":[{"name":L.text("Прогноз"),"values":[10,15,18],"lower":[8,10,11],"upper":[12,20,25]}]},
+  "errorbar":{"labels":["А","Б"],"series":[{"name":L.text("Оценка"),"values":[10,20],"lower":[8,16],"upper":[12,24]}]},
   "calendar_heatmap":{"days":[{"date":"2026-10-01","value":10},{"date":"2026-10-02","value":null},{"date":"2026-10-03","value":20}]},
-  "dumbbell":{"labels":["Север","Юг"],"series":[{"name":"До","values":[10,20]},{"name":"После","values":[15,18]}]},
-  "slope":{"labels":["Север","Юг"],"series":[{"name":"До","values":[10,20]},{"name":"После","values":[15,18]}]},
-  "bump":{"labels":["Март","Апрель","Май"],"series":[{"name":"Север","values":[1,2,1]},{"name":"Юг","values":[2,1,2]}],"unit":"Место"},
+  "dumbbell":{"labels":[L.text("Север"),L.text("Юг")],"series":[{"name":L.text("До"),"values":[10,20]},{"name":L.text("После"),"values":[15,18]}]},
+  "slope":{"labels":[L.text("Север"),L.text("Юг")],"series":[{"name":L.text("До"),"values":[10,20]},{"name":L.text("После"),"values":[15,18]}]},
+  "bump":{"labels":[L.text("Март"),L.text("Апрель"),L.text("Май")],"series":[{"name":L.text("Север"),"values":[1,2,1]},{"name":L.text("Юг"),"values":[2,1,2]}],"unit":L.text("Место")},
   "symbol_map":{"nodes":[{"id":"a","label":"А","point":[0.2,0.3],"value":10},{"id":"b","label":"Б","point":[0.8,0.7],"value":20}]},
   "flow_map":{"nodes":[{"id":"a","label":"А","point":[0.2,0.3]},{"id":"b","label":"Б","point":[0.8,0.7]}],"links":[{"source":"a","target":"b","value":10}]},
-  "tree":{"nodes":[{"id":"root","label":"Страна"},{"id":"a","label":"Север","parent":"root","value":10},{"id":"b","label":"Юг","parent":"root","value":20}]},
-  "icicle":{"nodes":[{"id":"root","label":"Страна"},{"id":"a","label":"Север","parent":"root","value":10},{"id":"b","label":"Юг","parent":"root","value":20}]},
-  "parallel":{"dimensions":[{"label":"Выпуск","unit":"ед."},{"label":"Население","unit":"чел."}],"rows":[{"label":"Север","values":[20,100]},{"label":"Юг","values":[10,200]}]},
-  "small_multiples":{"kind":"line","labels":["Март","Апрель","Май"],"panels":[{"title":"Север","values":[10,20,15]},{"title":"Юг","values":[15,12,18]}]}
+  "tree":{"nodes":[{"id":"root","label":L.text("Страна")},{"id":"a","label":L.text("Север"),"parent":"root","value":10},{"id":"b","label":L.text("Юг"),"parent":"root","value":20}]},
+  "icicle":{"nodes":[{"id":"root","label":L.text("Страна")},{"id":"a","label":L.text("Север"),"parent":"root","value":10},{"id":"b","label":L.text("Юг"),"parent":"root","value":20}]},
+  "parallel":{"dimensions":[{"label":L.text("Выпуск"),"unit":L.text("ед.")},{"label":L.text("Население"),"unit":L.text("чел.")}],"rows":[{"label":L.text("Север"),"values":[20,100]},{"label":L.text("Юг"),"values":[10,200]}]},
+  "small_multiples":{"kind":"line","labels":[L.text("Март"),L.text("Апрель"),L.text("Май")],"panels":[{"title":L.text("Север"),"values":[10,20,15]},{"title":L.text("Юг"),"values":[15,12,18]}]}
  }
  if not definitions.has(kind): return {}
  base.merge(definitions[kind],true)

@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Schemas are requested individually, never attached wholesale to model context.
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
 const Extra = preload("res://mods/pax_harness/src/visualization/specs/chart_extra_spec.gd")
@@ -35,7 +36,7 @@ static func execute(args: Dictionary) -> Dictionary:
 	if kind in ["stacked_bar","stacked_column","stacked_area"]: rules += " All values nonnegative, 1..4 additive series, at most60 labels. stacked_area optionally accepts strictly increasing x."
 	if kind in ["pie","donut"]: rules += " series MUST be a JSON ARRAY containing exactly one object, never a bare object. At most12 categories, positive total."
 	if kind in ["pie","donut","treemap","waterfall"]:
-		schema["example"] = {"type":kind,"title":"Учебный пример","source":"Учебные данные, не состояние партии","basis":"scenario","labels":["А","Б"],"series":[{"name":"Значения","values":[60,40]}]}
+		schema["example"] = {"type":kind,"title":L.text("Учебный пример"),"source":L.text("Учебные данные, не состояние партии"),"basis":"scenario","labels":["А","Б"],"series":[{"name":L.text("Значения"),"values":[60,40]}]}
 	return {"ok":true,"result":{"type":kind,"common":{"type":kind,"title":"descriptive string <=500","source":"actual source, date/period and coverage <=500","unit":"optional string <=40","basis":"observed|scenario|forecast, default observed","x_label":"optional string <=80","y_label":"optional string <=80"},"schema":schema,"rules":rules,"display":"Complete fenced pax-chart JSON. charts.function/charts.map instead return display_ref: put that short object into the fence in this same reply; full arrays remain in the saved receipt.","data_policy":"Any installed mod may supply observations in this schema. Request only relevant fields/pages through available tools. Unknown is not zero; do not run code or fetch external assets from a chart. No data is loaded by describing a type."}}
 
 static func dict(schema: Dictionary, kind: String) -> Dictionary:

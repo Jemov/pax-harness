@@ -1,4 +1,5 @@
 extends Control
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Text = preload("res://mods/pax_harness/src/visualization/chart_text.gd")
@@ -71,7 +72,7 @@ func _open_map_menu(at: Vector2) -> void:
 	if _context_region.is_empty(): return
 	if not is_instance_valid(_map_menu):
 		_map_menu = PopupMenu.new(); _map_menu.name = "ProvinceContextMenu"
-		_map_menu.add_item("Перейти",0); add_child(_map_menu)
+		_map_menu.add_item(L.text("Перейти"),0); add_child(_map_menu)
 		_map_menu.id_pressed.connect(func(id: int):
 			_map_menu.hide()
 			if id == 0 and not _context_region.is_empty(): province_requested.emit(_context_region.duplicate()))
@@ -184,7 +185,7 @@ func _scatter() -> void:
 			draw_circle(point,radius,Color(COLORS[s],0.3 if spec.type == "bubble" else 0.85),true,-1,true)
 			draw_arc(point,radius,0,TAU,48,COLORS[s],1.2,true)
 			var text: String = str(spec.labels[i])+"\n"+str(spec.get("x_label","x"))+": "+Chart.number(spec.x[i])+"\n"+str(spec.series[s].name)+": "+_amount(spec.series[s].values[i])
-			if spec.type == "bubble": text += "\n"+str(spec.get("size_label","Размер"))+": "+Chart.number(spec.sizes[i])
+			if spec.type == "bubble": text += "\n"+str(spec.get("size_label",L.text("Размер")))+": "+Chart.number(spec.sizes[i])
 			_hit(Rect2(point-Vector2.ONE*maxf(7,radius),Vector2.ONE*maxf(14,radius*2)),text)
 
 func _columns() -> void:
@@ -218,7 +219,7 @@ func _heatmap() -> void:
 	if low == INF: low = 0; high = 1
 	var left: float = clampf(size.x*0.28,70,160)
 	var header := 52.0
-	var footer_text: String = "От "+Chart.number(low)+" до "+_amount(high)+" · серый — нет данных"
+	var footer_text: String = L.text("От ")+Chart.number(low)+L.text(" до ")+_amount(high)+L.text(" · серый — нет данных")
 	var footer: float = _height(footer_text,size.x-20)+18
 	var row_height := 30.0
 	for text: String in spec.labels: row_height = maxf(row_height,_height(text,left-20)+12)
@@ -233,7 +234,7 @@ func _heatmap() -> void:
 			var rect := Rect2(area.position+Vector2(c,r)*cell,cell-Vector2(2,2))
 			draw_style_box(Style.box(Color("#30343e") if value == null else _color(value,low,high),3,Color.TRANSPARENT,0),rect)
 			if cell.x >= 48: _fit("—" if value == null else Chart.number(value),Rect2(rect.position+Vector2(3,(cell.y-20)/2),Vector2(rect.size.x-6,20)),Color("#edf2fb"))
-			_hit(rect,str(spec.labels[r])+" · "+str(spec.columns[c])+": "+("нет данных" if value == null else _amount(value)))
+			_hit(rect,str(spec.labels[r])+" · "+str(spec.columns[c])+": "+(L.text("нет данных") if value == null else _amount(value)))
 	for c: int in spec.columns.size():
 		var code: String = _key(str(spec.columns[c])) if cell.x < 32 else str(spec.columns[c])
 		var skip: int = ceili(36/maxf(1,cell.x))
@@ -286,7 +287,7 @@ func _waterfall() -> void:
 		var rect := Rect2(area.position.x+i*step+step*0.12,minf(y1,y2),step*0.76,maxf(1,absf(y2-y1)))
 		draw_style_box(Style.box(COLORS[0] if i in spec.get("total_indices",[]) else COLORS[1] if levels[i].y >= levels[i].x else COLORS[4],3,Color.TRANSPARENT,0),rect)
 		if i < levels.size()-1: draw_line(Vector2(rect.end.x,y2),Vector2(area.position.x+(i+1)*step+step*0.12,y2),Color("#647086"),1,true)
-		_hit(rect.grow(3),str(spec.labels[i])+": "+_amount(spec.series[0].values[i])+"\nОстаток: "+_amount(levels[i].y))
+		_hit(rect.grow(3),str(spec.labels[i])+": "+_amount(spec.series[0].values[i])+L.text("\nОстаток: ")+_amount(levels[i].y))
 
 func _histogram() -> void:
 	var low: float = spec.samples.min(); var high: float = spec.samples.max()
@@ -299,10 +300,10 @@ func _histogram() -> void:
 		var height: float = float(values[i])/maxf(1,values.max())*area.size.y
 		var rect := Rect2(area.position.x+i*area.size.x/count,area.end.y-height,area.size.x/count-2,height)
 		draw_style_box(Style.box(Color(COLORS[0],0.8),3,Color.TRANSPARENT,0),rect)
-		_hit(Rect2(rect.position.x,area.position.y,rect.size.x,area.size.y),Chart.number(low+i*interval)+" … "+Chart.number(low+(i+1)*interval)+": "+str(values[i])+" наблюдений")
+		_hit(Rect2(rect.position.x,area.position.y,rect.size.x,area.size.y),Chart.number(low+i*interval)+" … "+Chart.number(low+(i+1)*interval)+": "+str(values[i])+L.text(" наблюдений"))
 
 func _radar() -> void:
-	var title: String = "Общая шкала: 0–"+Chart.number(float(spec.get("max",100)))
+	var title: String = L.text("Общая шкала: 0–")+Chart.number(float(spec.get("max",100)))
 	var top: float = _height(title,size.x-20)+42
 	var center := Vector2(size.x/2,(top+size.y-38)/2); var radius: float = minf((size.x-100)/2,(size.y-top-66)/2)
 	var maximum: float = float(spec.get("max",100)); var count: int = spec.labels.size()
@@ -341,14 +342,14 @@ func _boxplot() -> void:
 		for y: float in [y_min,y_max]: draw_line(Vector2(x-width/3,y),Vector2(x+width/3,y),COLORS[0],1.5,true)
 		draw_style_box(Style.box(Color(COLORS[0],0.35),3,COLORS[0],0),Rect2(x-width/2,y3,width,maxf(1,y1-y3)))
 		draw_line(Vector2(x-width/2,median),Vector2(x+width/2,median),Color("#e8effc"),2,true)
-		_hit(Rect2(x-step/2,area.position.y,step,area.size.y),str(box.label)+"\nmin: "+_amount(box.min)+"\nQ1: "+_amount(box.q1)+"\nМедиана: "+_amount(box.median)+"\nQ3: "+_amount(box.q3)+"\nmax: "+_amount(box.max))
+		_hit(Rect2(x-step/2,area.position.y,step,area.size.y),str(box.label)+"\nmin: "+_amount(box.min)+"\nQ1: "+_amount(box.q1)+L.text("\nМедиана: ")+_amount(box.median)+"\nQ3: "+_amount(box.q3)+"\nmax: "+_amount(box.max))
 
 func _stacked_area() -> void:
 	var count: int = spec.labels.size(); var sums: Array = []; sums.resize(count); sums.fill(0.0)
 	for row: Dictionary in spec.series:
 		for i: int in count: sums[i] += float(row.values[i])
 	var high: float = maxf(1,sums.max()); var area: Rect2 = _area()
-	_axes(area,0,high,float(spec.x[0]) if spec.has("x") else 0.0,float(spec.x[-1]) if spec.has("x") else float(count-1),[],{"x":spec.get("x_label", "Шаг" if not spec.has("x") else "x")})
+	_axes(area,0,high,float(spec.x[0]) if spec.has("x") else 0.0,float(spec.x[-1]) if spec.has("x") else float(count-1),[],{"x":spec.get("x_label", L.text("Шаг") if not spec.has("x") else "x")})
 	var base: Array = []; base.resize(count); base.fill(0.0)
 	for s: int in spec.series.size():
 		var lower := PackedVector2Array(); var upper := PackedVector2Array()
@@ -391,14 +392,14 @@ func _sankey() -> void:
 				captions[id] = wrap_label(full,label_width,get_theme_default_font())
 				if captions[id].size() > 3: captions[id] = PackedStringArray([_key(full,COLORS[int(order[id])%COLORS.size()])])
 			var amount_text: String = _amount(weights[id])
-			if incoming[id] > 0 and outgoing[id] > 0 and not is_equal_approx(incoming[id],outgoing[id]): amount_text = "Вход: "+_amount(incoming[id])+"\nВыход: "+_amount(outgoing[id])
+			if incoming[id] > 0 and outgoing[id] > 0 and not is_equal_approx(incoming[id],outgoing[id]): amount_text = L.text("Вход: ")+_amount(incoming[id])+L.text("\nВыход: ")+_amount(outgoing[id])
 			amounts[id] = wrap_label(amount_text,label_width,get_theme_default_font()) if label_width >= 32 else PackedStringArray()
 			space += (captions[id].size()+amounts[id].size())*Text.line_height(get_theme_default_font())+30
 		maximum = maxf(maximum,total); reserved = maxf(reserved,space)
 	var required_height: float = maxf(380,reserved+220)
 	if not is_equal_approx(custom_minimum_size.y,required_height): custom_minimum_size.y = required_height
 	var top: float = 60 if label_width < 32 else 25
-	if label_width < 32: Text.draw_text(self,"Подписи узлов — в списке под схемой",Rect2(12,8,size.x-24,0),Color("#b9c3d3"),HORIZONTAL_ALIGNMENT_LEFT,12,text_boxes)
+	if label_width < 32: Text.draw_text(self,L.text("Подписи узлов — в списке под схемой"),Rect2(12,8,size.x-24,0),Color("#b9c3d3"),HORIZONTAL_ALIGNMENT_LEFT,12,text_boxes)
 	var scale: float = minf(150,maxf(1,size.y-top-29-reserved))/maxf(0.000001,maximum)
 	var positions: Dictionary = {}; var out_y: Dictionary = {}; var in_y: Dictionary = {}
 	for layer: int in buckets:
@@ -438,14 +439,14 @@ func _sankey() -> void:
 			Text.draw_text(self,"\n".join(captions[node.id]),caption,Color("#d6dfef"),HORIZONTAL_ALIGNMENT_CENTER,12,text_boxes)
 			var amount_rect := Rect2(caption.position+Vector2(0,caption.size.y+3),Vector2(label_width,amounts[node.id].size()*Text.line_height(get_theme_default_font())))
 			Text.draw_text(self,"\n".join(amounts[node.id]),amount_rect,Color("#91a1b8"),HORIZONTAL_ALIGNMENT_CENTER,12,text_boxes)
-		_hit(rect.grow(3),str(node.label)+"\nВход: "+_amount(incoming[node.id])+"\nВыход: "+_amount(outgoing[node.id]))
+		_hit(rect.grow(3),str(node.label)+L.text("\nВход: ")+_amount(incoming[node.id])+L.text("\nВыход: ")+_amount(outgoing[node.id]))
 
 func _map() -> void:
 	var low := INF; var high := -INF
 	for region: Dictionary in spec.regions:
 		if region.value != null: low = minf(low,region.value); high = maxf(high,region.value)
 	if low == INF: low = 0; high = 1
-	var footer_text: String = ("Схематичная картограмма · " if spec.type == "cartogram" else "")+Chart.number(low)+" … "+_amount(high)+" · серый — нет данных"
+	var footer_text: String = (L.text("Схематичная картограмма · ") if spec.type == "cartogram" else "")+Chart.number(low)+" … "+_amount(high)+L.text(" · серый — нет данных")
 	var footer: float = _height(footer_text,size.x-28)+24
 	var area := Rect2(14,14,size.x-28,size.y-14-footer)
 	if spec.type == "choropleth":
@@ -460,7 +461,7 @@ func _map() -> void:
 				draw_polyline(polygon+PackedVector2Array([polygon[0]]),Color("#171c24"),1,true)
 				var bounds := Rect2(polygon[0],Vector2.ZERO)
 				for point: Vector2 in polygon: bounds = bounds.expand(point)
-				_hit(bounds,str(region.label)+": "+("нет данных" if region.value == null else _amount(region.value)),polygon)
+				_hit(bounds,str(region.label)+": "+(L.text("нет данных") if region.value == null else _amount(region.value)),polygon)
 				hits[-1]["region"] = {"id":str(region.id),"label":str(region.label),"body":str(spec.get("body",""))}
 	else:
 		var columns: int = ceili(sqrt(spec.regions.size()*1.6)); var rows: int = ceili(float(spec.regions.size())/columns)
@@ -476,7 +477,7 @@ func _map() -> void:
 			var rect := Rect2(area.position+Vector2(best%columns,best/columns)*cell,cell-Vector2(3,3))
 			draw_style_box(Style.box(Color("#3b404a") if region.value == null else _color(region.value,low,high),4,Color.TRANSPARENT,0),rect)
 			_fit(str(region.label)+"\n"+("—" if region.value == null else _amount(region.value)),Rect2(rect.position+Vector2(6,6),rect.size-Vector2(12,12)),Color("#e5edf9"))
-			_hit(rect,str(region.label)+": "+("нет данных" if region.value == null else _amount(region.value)))
+			_hit(rect,str(region.label)+": "+(L.text("нет данных") if region.value == null else _amount(region.value)))
 			hits[-1]["region"] = {"id":str(region.id),"label":str(region.label),"body":str(spec.get("body",""))}
 	Text.draw_text(self,footer_text,Rect2(14,area.end.y+10,size.x-28,0),Color("#aab2bf"),HORIZONTAL_ALIGNMENT_LEFT,12,text_boxes)
 
@@ -506,10 +507,10 @@ func _distributions() -> void:
 	if spec.type == "violin":
 		var names: Array = []
 		for group: Dictionary in spec.groups: names.append(str(group.name)+" · n="+str(group.samples.size()))
-		_axes(area,low,high,0,spec.groups.size()-1,names,{"x":"","y":str(spec.get("unit","Значение"))})
-	elif spec.type == "density": _axes(area,0,peak,low,high,[],{"x":str(spec.get("x_label",spec.get("unit","Значение"))),"y":"Оценка плотности"})
+		_axes(area,low,high,0,spec.groups.size()-1,names,{"x":"","y":str(spec.get("unit",L.text("Значение")))})
+	elif spec.type == "density": _axes(area,0,peak,low,high,[],{"x":str(spec.get("x_label",spec.get("unit",L.text("Значение")))),"y":L.text("Оценка плотности")})
 	else:
-		_axes(area,0,1,low,high,[],{"y_ticks":false,"y":"Оценка плотности","x":str(spec.get("x_label",spec.get("unit","Значение")))})
+		_axes(area,0,1,low,high,[],{"y_ticks":false,"y":L.text("Оценка плотности"),"x":str(spec.get("x_label",spec.get("unit",L.text("Значение"))))})
 	for i: int in curves.size():
 		var upper := PackedVector2Array(); var lower := PackedVector2Array()
 		for sample: int in 81:
@@ -524,9 +525,9 @@ func _distributions() -> void:
 				var height: float = area.size.y if spec.type == "density" else area.size.y/curves.size()*0.85
 				upper.append(Vector2(area.position.x+fraction*area.size.x,baseline-float(curves[i][sample])/maxf(1.0e-15,peak)*height))
 				lower.append(Vector2(area.position.x+fraction*area.size.x,baseline))
-				if spec.type == "density": _hit(Rect2(upper[-1]-Vector2(6,6),Vector2(12,12)),str(spec.groups[i].name)+" · n="+str(spec.groups[i].samples.size())+"\nx: "+Chart.number(lerpf(low,high,fraction))+"\nПлотность: "+str(snappedf(curves[i][sample],0.00001)))
+				if spec.type == "density": _hit(Rect2(upper[-1]-Vector2(6,6),Vector2(12,12)),str(spec.groups[i].name)+" · n="+str(spec.groups[i].samples.size())+"\nx: "+Chart.number(lerpf(low,high,fraction))+L.text("\nПлотность: ")+str(snappedf(curves[i][sample],0.00001)))
 		lower.reverse(); _fill(upper+lower,Color(COLORS[i%COLORS.size()],0.25)); draw_polyline(upper,COLORS[i%COLORS.size()],2,true)
-		var text: String = str(spec.groups[i].name)+" · n="+str(spec.groups[i].samples.size())+(" · малая выборка" if spec.groups[i].samples.size() < 20 else "")
+		var text: String = str(spec.groups[i].name)+" · n="+str(spec.groups[i].samples.size())+(L.text(" · малая выборка") if spec.groups[i].samples.size() < 20 else "")
 		if spec.type == "violin":
 			draw_polyline(lower,COLORS[i%COLORS.size()],2,true)
 		elif spec.type == "density": _key(text,COLORS[i%COLORS.size()])
@@ -535,4 +536,4 @@ func _distributions() -> void:
 			_fit(code,Rect2(6,area.position.y+i*area.size.y/curves.size()+4,52,20),COLORS[i%COLORS.size()])
 		if spec.type != "density":
 			var region: Rect2 = Rect2(area.position.x+i*area.size.x/curves.size(),area.position.y,area.size.x/curves.size(),area.size.y) if spec.type == "violin" else Rect2(area.position.x,area.position.y+i*area.size.y/curves.size(),area.size.x,area.size.y/curves.size())
-			_hit(region,text+"\nСглаженная оценка плотности; bandwidth="+Chart.number(bandwidths[i]))
+			_hit(region,text+L.text("\nСглаженная оценка плотности; bandwidth=")+Chart.number(bandwidths[i]))

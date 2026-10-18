@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Read the official record: native YAML headers and biography are separate.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const FIELDS := ["name","who","temperament","age","чем занят","dream","where","race","guest","died","gone"]
@@ -11,6 +12,6 @@ static func read(memory: Object, name: String) -> Dictionary:
 		if text.begins_with("---"):
 			var end: int = text.find("---",3)
 			if end >= 0:
-				var biography: String = text.substr(end+3).split("## ключевые моменты",true,1)[0].strip_edges()
+				var biography: String = text.substr(end+3).split(L.text("## ключевые моменты"),true,1)[0].strip_edges()
 				if biography.to_utf8_buffer().size() <= 65536: record["lore"] = biography
 	return record

@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Bounded declarative data only. No expressions, scripts, external assets or URLs.
 const TYPES := ["bar", "line", "area", "stacked_bar", "donut", "pie"]
 const Extra = preload("res://mods/pax_harness/src/visualization/specs/chart_extra_spec.gd")
@@ -64,24 +65,24 @@ static func validate(value: Variant) -> Dictionary:
 static func number(value: float) -> String:
 	var magnitude := absf(value)
 	if magnitude > 0 and magnitude < 0.01: return String.num_scientific(value)
-	if magnitude >= 1.0e9: return ("%.2f" % (value / 1.0e9)).trim_suffix("0").trim_suffix("0").trim_suffix(".") + " млрд"
-	if magnitude >= 1.0e6: return ("%.2f" % (value / 1.0e6)).trim_suffix("0").trim_suffix("0").trim_suffix(".") + " млн"
-	if magnitude >= 10000: return ("%.1f" % (value / 1000.0)).trim_suffix("0").trim_suffix(".") + " тыс."
+	if magnitude >= 1.0e9: return ("%.2f" % (value / 1.0e9)).trim_suffix("0").trim_suffix("0").trim_suffix(".") + L.text(" млрд")
+	if magnitude >= 1.0e6: return ("%.2f" % (value / 1.0e6)).trim_suffix("0").trim_suffix("0").trim_suffix(".") + L.text(" млн")
+	if magnitude >= 10000: return ("%.1f" % (value / 1000.0)).trim_suffix("0").trim_suffix(".") + L.text(" тыс.")
 	return ("%.2f" % value).trim_suffix("0").trim_suffix("0").trim_suffix(".")
 
 static func plain(spec: Dictionary) -> String:
 	if spec.type in Extra.TYPES: return Extra.plain(spec)
 	var lines := PackedStringArray([str(spec.title)])
-	if spec.get("basis","observed") != "observed": lines.append("Сценарный расчёт" if spec.basis == "scenario" else "Прогноз")
+	if spec.get("basis","observed") != "observed": lines.append(L.text("Сценарный расчёт") if spec.basis == "scenario" else L.text("Прогноз"))
 	if spec.get("x_label","") != "": lines.append("X: "+str(spec.x_label))
 	if spec.get("y_label","") != "": lines.append("Y: "+str(spec.y_label))
-	if not spec.get("breaks",[]).is_empty(): lines.append("Разрывы кривой: "+str(spec.breaks.size()))
+	if not spec.get("breaks",[]).is_empty(): lines.append(L.text("Разрывы кривой: ")+str(spec.breaks.size()))
 	for index: int in spec.labels.size():
 		var values := PackedStringArray()
 		for series: Dictionary in spec.series:
-			values.append(str(series.name)+": "+("нет данных" if series.values[index] == null else str(series.values[index])+" "+str(spec.get("unit", ""))))
+			values.append(str(series.name)+": "+(L.text("нет данных") if series.values[index] == null else str(series.values[index])+" "+str(spec.get("unit", ""))))
 		lines.append(str(spec.labels[index])+" — "+"; ".join(values))
-	lines.append("Источник: "+str(spec.source))
+	lines.append(L.text("Источник: ")+str(spec.source))
 	return "\n".join(lines)
 
 static func curve_points(points: PackedVector2Array, mode: String) -> PackedVector2Array:

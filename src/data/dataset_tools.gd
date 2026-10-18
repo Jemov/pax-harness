@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Read-only bounded tables, referenced only through this task's successful receipts.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const Chart = preload("res://mods/pax_harness/src/visualization/specs/chat_chart.gd")
@@ -20,7 +21,7 @@ static func execute(name: String, args: Dictionary, receipts: Array) -> Dictiona
 		"datasets.transform": return transform(input.result,args,receipts)
 		"statistics.calculate": return statistics(input.result,args)
 		"datasets.chart": return chart(input.result,args)
-	return failure("unknown_tool","Неизвестная операция над данными.")
+	return failure("unknown_tool",L.text("Неизвестная операция над данными."))
 
 static func receipt_result(id: String, receipts: Array) -> Dictionary:
 	for receipt: Variant in receipts:
@@ -54,39 +55,39 @@ static func tabular_result(result: Dictionary, name: String) -> Dictionary:
 
 static func resolve(args: Dictionary, receipts: Array) -> Dictionary:
 	var modes: int = int(args.has("rows"))+int(args.has("receipt_ids"))+int(args.has("receipt_id"))
-	if modes != 1: return failure("one_input_required","Укажите ровно один вход: receipt_id, receipt_ids или учебные rows с source.")
+	if modes != 1: return failure("one_input_required",L.text("Укажите ровно один вход: receipt_id, receipt_ids или учебные rows с source."))
 	var rows: Array = []; var provenance: Array = []; var coverage: Array = []; var basis := "observed"
 	if args.has("rows"):
-		if not args.rows is Array or str(args.get("source","")).strip_edges().is_empty(): return failure("scenario_source_required","Для явно переданных строк нужен source; они считаются сценарными данными.")
+		if not args.rows is Array or str(args.get("source","")).strip_edges().is_empty(): return failure("scenario_source_required",L.text("Для явно переданных строк нужен source; они считаются сценарными данными."))
 		rows = args.rows.duplicate(true); basis = "scenario"; provenance.append({"source":str(args.source),"basis":"scenario"})
 	else:
 		var ids: Array = args.get("receipt_ids",[args.get("receipt_id","")])
-		if ids.is_empty() or ids.size() > 100: return failure("invalid_references","Требуется от 1 до 100 уникальных результатов текущей задачи.")
+		if ids.is_empty() or ids.size() > 100: return failure("invalid_references",L.text("Требуется от 1 до 100 уникальных результатов текущей задачи."))
 		var seen: Dictionary = {}
 		for raw_id: Variant in ids:
 			var id: String = str(raw_id)
-			if seen.has(id): return failure("duplicate_reference","Один результат нельзя включать дважды: "+id)
+			if seen.has(id): return failure("duplicate_reference",L.text("Один результат нельзя включать дважды: ")+id)
 			seen[id] = true
 			var result: Dictionary = receipt_result(id,receipts)
-			if result.is_empty(): return failure("receipt_unavailable","Нет успешно завершённого результата в этой задаче: "+id)
+			if result.is_empty(): return failure("receipt_unavailable",L.text("Нет успешно завершённого результата в этой задаче: ")+id)
 			if ids.size() == 1 and result.has("statistics") and result.get("rows") is Array and result.rows.size() <= 24 and result.has("basis") and result.has("source") and result.has("provenance") and JSON.stringify(result).to_utf8_buffer().size() <= MAX_BYTES:
 				return {"ok":true,"result":result.duplicate(true)}
-			if not result.get("rows") is Array: return failure("rows_unavailable","Результат "+id+" не содержит табличных rows. Сначала запросите нужный источник данных.")
+			if not result.get("rows") is Array: return failure("rows_unavailable",L.text("Результат ")+id+L.text(" не содержит табличных rows. Сначала запросите нужный источник данных."))
 			rows.append_array(result.rows.duplicate(true))
-			if rows.size() > MAX_ROWS: return failure("row_limit","Не более 20000 строк. Запросите агрегаты или меньший диапазон.")
+			if rows.size() > MAX_ROWS: return failure("row_limit",L.text("Не более 20000 строк. Запросите агрегаты или меньший диапазон."))
 			var inherited: String = str(result.get("basis","observed"))
 			if inherited != "observed": basis = "scenario" if inherited == "scenario" or basis == "scenario" else "forecast"
 			provenance.append({"receipt_id":id,"source":result.get("source","Recorded tool observation"),"basis":inherited,"date":result.get("date",null),"body":result.get("body",null),"country":result.get("country",null),"ancestors":result.get("provenance",[]),"provider":result.get("provider",null),"historical":result.get("historical",false),"current_world_verified":result.get("current_world_verified",null),"recorded_origin":result.get("recorded_origin",{})})
 			coverage.append({"receipt_id":id,"returned":result.rows.size(),"total":result.get("total",result.get("original_count",result.rows.size())),"has_more":result.get("has_more",false),"details":result.get("coverage",result.get("details",{})),"offset":result.get("offset",null),"next_offset":result.get("next_offset",null)})
 	var cells := 0
-	if rows.size() > MAX_ROWS: return failure("row_limit","Не более 20000 строк.")
+	if rows.size() > MAX_ROWS: return failure("row_limit",L.text("Не более 20000 строк."))
 	for row: Variant in rows:
-		if not row is Dictionary or row.size() > MAX_FIELDS: return failure("invalid_rows","Каждая строка должна быть объектом не более чем с 40 полями.")
+		if not row is Dictionary or row.size() > MAX_FIELDS: return failure("invalid_rows",L.text("Каждая строка должна быть объектом не более чем с 40 полями."))
 		cells += row.size()
 		for key: Variant in row:
-			if not key is String or key.length() > 160 or not Data.plain(row[key]): return failure("invalid_cell","Недопустимое поле или значение в строке.")
-	if cells > MAX_CELLS or JSON.stringify(rows).to_utf8_buffer().size() > MAX_BYTES: return failure("size_limit","Набор превышает лимит 300000 ячеек или 4 МБ; выберите меньше полей.")
-	return {"ok":true,"result":{"rows":rows,"source":str(args.get("source","Учебные данные")) if args.has("rows") else "Преобразование сохранённых результатов инструментов","basis":basis,"provenance":provenance,"coverage":coverage,"original_count":rows.size()}}
+			if not key is String or key.length() > 160 or not Data.plain(row[key]): return failure("invalid_cell",L.text("Недопустимое поле или значение в строке."))
+	if cells > MAX_CELLS or JSON.stringify(rows).to_utf8_buffer().size() > MAX_BYTES: return failure("size_limit",L.text("Набор превышает лимит 300000 ячеек или 4 МБ; выберите меньше полей."))
+	return {"ok":true,"result":{"rows":rows,"source":str(args.get("source",L.text("Учебные данные"))) if args.has("rows") else L.text("Преобразование сохранённых результатов инструментов"),"basis":basis,"provenance":provenance,"coverage":coverage,"original_count":rows.size()}}
 
 static func transform(input: Dictionary, args: Dictionary, receipts: Array) -> Dictionary:
 	var rows: Array = input.rows.duplicate(true)
@@ -106,7 +107,7 @@ static func transform(input: Dictionary, args: Dictionary, receipts: Array) -> D
 		var grouped: Dictionary = group_rows(rows,args.get("group_by",[]),args.aggregates)
 		if not grouped.ok: return grouped
 		rows = grouped.result.rows
-	elif not args.get("group_by",[]).is_empty(): return failure("aggregate_required","Для группировки укажите aggregates.")
+	elif not args.get("group_by",[]).is_empty(): return failure("aggregate_required",L.text("Для группировки укажите aggregates."))
 	var sorts: Array = args.get("sort",[])
 	if not sorts.is_empty(): rows.sort_custom(func(a: Dictionary,b: Dictionary): return ordered(a,b,sorts))
 	var before_sampling := rows.size()
@@ -124,7 +125,7 @@ static func transform(input: Dictionary, args: Dictionary, receipts: Array) -> D
 	result["sampled"] = args.has("downsample") and rows.size() < before_sampling
 	result["truncated"] = args.has("limit") and rows.size() < before_sampling
 	result["operations"] = args.duplicate(true); result.operations.erase("rows")
-	if JSON.stringify(result).to_utf8_buffer().size() > MAX_BYTES: return failure("size_limit","Результат превышает 4 МБ.")
+	if JSON.stringify(result).to_utf8_buffer().size() > MAX_BYTES: return failure("size_limit",L.text("Результат превышает 4 МБ."))
 	return {"ok":true,"result":result}
 
 static func matches(value: Variant, filter: Dictionary) -> bool:
@@ -167,7 +168,7 @@ static func group_rows(rows: Array, keys: Array, aggregates: Array) -> Dictionar
 		for i: int in keys.size(): row[str(keys[i])] = group.keys[i]
 		for aggregate: Dictionary in aggregates:
 			var alias: String = str(aggregate.get("as",str(aggregate.op)+"_"+str(aggregate.get("field","rows"))))
-			if row.has(alias): return failure("duplicate_column","Повторное имя агрегата: "+alias)
+			if row.has(alias): return failure("duplicate_column",L.text("Повторное имя агрегата: ")+alias)
 			var values: Array = []
 			for source: Dictionary in group.rows:
 				var value: Variant = source.get(str(aggregate.get("field","")))
@@ -190,21 +191,21 @@ static func group_rows(rows: Array, keys: Array, aggregates: Array) -> Dictionar
 						for value: float in values: number += value/values.size()
 				"min": number = values.min() if not values.is_empty() else null
 				"max": number = values.max() if not values.is_empty() else null
-				_: return failure("unknown_aggregate","Неизвестный агрегат.")
+				_: return failure("unknown_aggregate",L.text("Неизвестный агрегат."))
 			row[alias] = number
 		result.append(row)
 	return {"ok":true,"result":{"rows":result}}
 
 static func join_rows(left: Array, args: Dictionary, receipts: Array) -> Dictionary:
 	var right: Dictionary = receipt_result(str(args.get("receipt_id","")),receipts)
-	if not right.get("rows") is Array: return failure("join_unavailable","Правый набор должен быть успешным результатом текущей задачи с rows.")
+	if not right.get("rows") is Array: return failure("join_unavailable",L.text("Правый набор должен быть успешным результатом текущей задачи с rows."))
 	var index: Dictionary = {}; var right_key: String = str(args.get("right_key","")); var left_key: String = str(args.get("left_key","")); var prefix: String = str(args.get("prefix","right_"))
 	for row: Variant in right.rows:
-		if not row is Dictionary: return failure("join_invalid_rows","Правый набор содержит не объекты.")
+		if not row is Dictionary: return failure("join_invalid_rows",L.text("Правый набор содержит не объекты."))
 		var key: Variant = row.get(right_key)
 		if key == null: continue
 		var token: String = JSON.stringify(key)
-		if index.has(token): return failure("join_not_unique","Правый ключ должен быть уникален; сначала агрегируйте его.")
+		if index.has(token): return failure("join_not_unique",L.text("Правый ключ должен быть уникален; сначала агрегируйте его."))
 		index[token] = row
 	var result: Array = []
 	for original: Dictionary in left:
@@ -213,16 +214,16 @@ static func join_rows(left: Array, args: Dictionary, receipts: Array) -> Diction
 		if match_row.is_empty() and args.get("mode","left") == "inner": continue
 		for field: String in match_row:
 			if field == right_key: continue
-			if row.has(prefix+field): return failure("join_column_collision","Колонка объединения уже существует: "+prefix+field)
+			if row.has(prefix+field): return failure("join_column_collision",L.text("Колонка объединения уже существует: ")+prefix+field)
 			row[prefix+field] = match_row[field]
-		if row.size() > MAX_FIELDS: return failure("column_limit","После объединения не более 40 колонок.")
+		if row.size() > MAX_FIELDS: return failure("column_limit",L.text("После объединения не более 40 колонок."))
 		result.append(row)
 	return {"ok":true,"result":{"rows":result,"provenance":{"receipt_id":args.receipt_id,"source":right.get("source","Recorded observation"),"basis":right.get("basis","observed"),"join":"many-to-one "+str(args.get("mode","left"))}}}
 
 static func downsample(rows: Array, args: Dictionary) -> Dictionary:
 	var x: String = str(args.get("x","")); var y: String = str(args.get("y","")); var limit: int = clampi(int(args.get("limit",241)),4,1000)
 	for row: Dictionary in rows:
-		if not Data.number(row.get(x)) or not Data.number(row.get(y)): return failure("sample_numeric_required","Для downsample нужны конечные числовые x и y во всех строках; пропуски нельзя превращать в нули.")
+		if not Data.number(row.get(x)) or not Data.number(row.get(y)): return failure("sample_numeric_required",L.text("Для downsample нужны конечные числовые x и y во всех строках; пропуски нельзя превращать в нули."))
 	rows.sort_custom(func(a: Dictionary,b: Dictionary): return a[x] < b[x])
 	if rows.size() <= limit: return {"ok":true,"result":{"rows":rows}}
 	var picks: Dictionary = {0:true,rows.size()-1:true}
@@ -241,7 +242,7 @@ static func downsample(rows: Array, args: Dictionary) -> Dictionary:
 
 static func read_page(args: Dictionary, receipts: Array) -> Dictionary:
 	var result: Dictionary = receipt_result(str(args.get("receipt_id","")),receipts)
-	if not result.get("rows") is Array: return failure("receipt_unavailable","Набор rows не найден в успешных результатах текущей задачи.")
+	if not result.get("rows") is Array: return failure("receipt_unavailable",L.text("Набор rows не найден в успешных результатах текущей задачи."))
 	var offset: int = maxi(0,int(args.get("offset",0))); var limit: int = clampi(int(args.get("limit",50)),1,200)
 	var page: Dictionary = result.duplicate(true); page.rows = result.rows.slice(offset,offset+limit)
 	page["total"] = result.rows.size(); page["offset"] = offset; page["has_more"] = offset+page.rows.size() < result.rows.size(); page["next_offset"] = offset+page.rows.size()
@@ -254,7 +255,7 @@ static func quantile(sorted_values: Array, probability: float) -> Variant:
 
 static func statistics(input: Dictionary, args: Dictionary) -> Dictionary:
 	var fields: Array = args.get("fields",[])
-	if fields.is_empty() or fields.size() > 24: return failure("fields_required","Укажите 1..24 числовых поля.")
+	if fields.is_empty() or fields.size() > 24: return failure("fields_required",L.text("Укажите 1..24 числовых поля."))
 	var result: Dictionary = input.duplicate(true); result.erase("rows"); result["statistics"] = []; result["rows"] = []
 	for field: String in fields:
 		var values: Array = []; var invalid := 0
@@ -295,12 +296,12 @@ static func chart(input: Dictionary, args: Dictionary) -> Dictionary:
 		var expected: String = explicit_chart_fields(str(args.get("type","bar")),input)
 		if not expected.is_empty():
 			var kind: String = str(args.type)
-			var reason: String = "Для типа «"+kind+"» нужен явный объект chart: "+expected+". Вызовите charts.describe("+JSON.stringify({"type":kind})+"), затем передайте chart по этой схеме с rows+source или receipt_id, либо полный самостоятельный chart с basis=scenario и source. Одни rows не задают структуру диаграммы; повтор без chart не исправит ошибку."
+			var reason: String = L.text("Для типа «")+kind+L.text("» нужен явный объект chart: ")+expected+L.text(". Вызовите charts.describe(")+JSON.stringify({"type":kind})+L.text("), затем передайте chart по этой схеме с rows+source или receipt_id, либо полный самостоятельный chart с basis=scenario и source. Одни rows не задают структуру диаграммы; повтор без chart не исправит ошибку.")
 			var rejected: Dictionary = failure("chart_invalid",reason)
 			rejected.result["errors"] = [{"field":"chart","reason":reason}]
 			rejected.result["retry_unchanged"] = false
 			return rejected
-		spec = {"type":args.get("type","bar"),"title":args.get("title","Набор данных")}
+		spec = {"type":args.get("type","bar"),"title":args.get("title",L.text("Набор данных"))}
 		if spec.type == "heatmap" and input.has("correlation"):
 			spec.labels = input.correlation.fields; spec.columns = input.correlation.fields; spec.matrix = input.correlation.matrix
 		elif spec.type == "boxplot" and input.has("statistics"):
@@ -315,7 +316,7 @@ static func chart(input: Dictionary, args: Dictionary) -> Dictionary:
 				var column: Variant = value_fields[index]
 				if (args.has("value_fields") or args.has("y_field")) and column is String and not column.is_empty() and not input.rows.any(func(row: Dictionary): return row.has(column)):
 					var field: String = "value_fields[%d]" % index if args.has("value_fields") else "y_field"
-					var reason: String = "Колонка «"+column.left(160)+"» отсутствует во всех итоговых строках. Проверьте datasets.read и финальную проекцию fields: после группировки она должна включать созданные имена агрегатов."
+					var reason: String = L.text("Колонка «")+column.left(160)+L.text("» отсутствует во всех итоговых строках. Проверьте datasets.read и финальную проекцию fields: после группировки она должна включать созданные имена агрегатов.")
 					var rejected: Dictionary = failure("chart_invalid",reason)
 					rejected.result["errors"] = [{"field":field,"reason":reason}]
 					return rejected
@@ -332,7 +333,7 @@ static func chart(input: Dictionary, args: Dictionary) -> Dictionary:
 		for key: String in ["type","title"]:
 			if not spec.has(key) and args.has(key): spec[key] = args[key]
 	var expanded: Variant = materialize(spec,input.rows)
-	if not expanded is Dictionary: return failure("invalid_chart_mapping","Неверные ссылки на колонки.")
+	if not expanded is Dictionary: return failure("invalid_chart_mapping",L.text("Неверные ссылки на колонки."))
 	spec = expanded; spec["source"] = str(input.get("source","Recorded dataset")); spec["basis"] = input.get("basis","observed")
 	if args.has("unit"): spec["unit"] = args.unit
 	var checked: Dictionary = validate_chart(spec)
@@ -344,17 +345,17 @@ static func chart(input: Dictionary, args: Dictionary) -> Dictionary:
 static func standalone_chart(args: Dictionary) -> Dictionary:
 	var raw: Variant = args.get("chart")
 	if not raw is Dictionary or raw.is_empty() or raw.get("basis") != "scenario":
-		return failure("one_input_required","Укажите ровно один табличный вход: receipt_id, receipt_ids или учебные rows с source. Без таблицы разрешён только полный явный chart с chart.basis=\"scenario\" и непустым source; отсутствие basis не означает scenario.")
+		return failure("one_input_required",L.text("Укажите ровно один табличный вход: receipt_id, receipt_ids или учебные rows с source. Без таблицы разрешён только полный явный chart с chart.basis=\"scenario\" и непустым source; отсутствие basis не означает scenario."))
 	var source: Variant = args.get("source",raw.get("source"))
 	if not source is String or source.strip_edges().is_empty():
-		return failure("scenario_source_required","Для самостоятельного сценарного chart нужен непустой source в аргументах или chart.source. Наблюдаемые данные требуют receipt_id или receipt_ids.")
+		return failure("scenario_source_required",L.text("Для самостоятельного сценарного chart нужен непустой source в аргументах или chart.source. Наблюдаемые данные требуют receipt_id или receipt_ids."))
 	var spec: Dictionary = raw.duplicate(true)
 	for key: String in ["type","title"]:
 		if not spec.has(key) and args.has(key): spec[key] = args[key]
 	spec["source"] = source
 	if args.has("unit"): spec["unit"] = args.unit
 	if JSON.stringify(spec).to_utf8_buffer().size() > Chart.MAX_BYTES:
-		var reason := "Самостоятельный chart превышает лимит блока диаграммы 262144 байта. Сократите данные, сохранив явную структуру и источник."
+		var reason := L.text("Самостоятельный chart превышает лимит блока диаграммы 262144 байта. Сократите данные, сохранив явную структуру и источник.")
 		var oversized: Dictionary = failure("chart_invalid",reason)
 		oversized.result["errors"] = [{"field":"chart","reason":reason}]
 		return oversized
@@ -366,8 +367,8 @@ static func validate_chart(spec: Dictionary) -> Dictionary:
 	var validated: Dictionary = Chart.validate(spec)
 	if validated.is_empty():
 		var inspected: Dictionary = preload("res://mods/pax_harness/src/visualization/chart_response.gd").inspect(JSON.stringify(spec))
-		var reason: String = str(inspected.get("reason","Результат не удовлетворяет строгой схеме диаграммы; используйте точный шаблон, включая массив series.")).left(500)
-		var rejected: Dictionary = failure("chart_invalid",reason+" Запросите charts.describe(type) и исправьте структуру или сопоставление полей. Сохраните отсутствующие наблюдения как null там, где схема это разрешает.")
+		var reason: String = str(inspected.get("reason",L.text("Результат не удовлетворяет строгой схеме диаграммы; используйте точный шаблон, включая массив series."))).left(500)
+		var rejected: Dictionary = failure("chart_invalid",reason+L.text(" Запросите charts.describe(type) и исправьте структуру или сопоставление полей. Сохраните отсутствующие наблюдения как null там, где схема это разрешает."))
 		rejected.result["errors"] = [{"field":str(inspected.get("field","")).left(160),"reason":reason}]
 		return rejected
 	return {"ok":true,"result":{"chart":validated}}
@@ -376,20 +377,20 @@ static func validate_chart(spec: Dictionary) -> Dictionary:
 ## Return only schema field names, never observations or fabricated sample data.
 static func explicit_chart_fields(kind: String, input: Dictionary) -> String:
 	match kind:
-		"sankey": return "nodes:[{id,label}], links:[{source,target,value}] с положительными потоками"
-		"sunburst","tree","icicle": return "nodes:[{id,label,parent?:id,value?:number}]; value только у листьев, у внутренних узлов отсутствует"
+		"sankey": return L.text("nodes:[{id,label}], links:[{source,target,value}] с положительными потоками")
+		"sunburst","tree","icicle": return L.text("nodes:[{id,label,parent?:id,value?:number}]; value только у листьев, у внутренних узлов отсутствует")
 		"network": return "nodes:[{id,label}], links:[{source,target}]"
 		"gantt": return "tasks:[{id,label,start,end}], dependencies?:[{source,target}]"
-		"choropleth": return "regions:[{id,label,value,polygons}] с настоящими нормализованными контурами"
+		"choropleth": return L.text("regions:[{id,label,value,polygons}] с настоящими нормализованными контурами")
 		"cartogram": return "regions:[{id,label,value,center?:[x,y]}]"
 		"density","violin","ridgeline": return "groups:[{name,samples:number[]}]"
 		"heatmap": return "labels, columns, matrix" if not input.has("correlation") else ""
 		"boxplot": return "boxes:[{label,min,q1,median,q3,max}]" if not input.has("statistics") else ""
-		"combo": return "labels, series:[{name,kind:bar|line,values:[number|null]}] с обоими видами серий"
+		"combo": return L.text("labels, series:[{name,kind:bar|line,values:[number|null]}] с обоими видами серий")
 		"interval","errorbar": return "labels, series:[{name,values,lower,upper}]"
 		"calendar_heatmap": return "days:[{date:YYYY-MM-DD,value:number|null}]"
-		"symbol_map": return "nodes:[{id,label,point:[x,y],value?:number}] с реальными нормализованными координатами"
-		"flow_map": return "nodes:[{id,label,point:[x,y]}], links:[{source,target,value}] с реальными нормализованными координатами"
+		"symbol_map": return L.text("nodes:[{id,label,point:[x,y],value?:number}] с реальными нормализованными координатами")
+		"flow_map": return L.text("nodes:[{id,label,point:[x,y]}], links:[{source,target,value}] с реальными нормализованными координатами")
 		"parallel": return "dimensions:[{label,unit?:text}], rows:[{label,values}]"
 		"small_multiples": return "kind:line|bar, labels, panels:[{title,values}]"
 	return ""

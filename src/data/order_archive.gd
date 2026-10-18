@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Outcome index saved with this mod. Reading the index never calls the AI.
 var records: Array = []
 var _active: Dictionary = {}
@@ -103,7 +104,7 @@ func _add(row: Dictionary) -> void:
 	records.append(row)
 
 static func _date_day(text: String) -> int:
-	var months: Array = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"]
+	var months: Array = [L.text("января"),L.text("февраля"),L.text("марта"),L.text("апреля"),L.text("мая"),L.text("июня"),L.text("июля"),L.text("августа"),L.text("сентября"),L.text("октября"),L.text("ноября"),L.text("декабря")]
 	var parts: PackedStringArray = text.split(" ",false)
 	if parts.size() < 3 or not parts[0].is_valid_int() or parts[1] not in months or not parts[2].is_valid_int(): return -1
 	return int(Time.get_unix_time_from_datetime_dict({"year":int(parts[2]),"month":months.find(parts[1])+1,"day":int(parts[0]),"hour":0,"minute":0,"second":0}) / 86400)

@@ -1,4 +1,5 @@
 extends RefCounted
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Save-owned sessions. UI and model context are projections of these records.
 signal changed
 const Metrics = preload("res://mods/pax_harness/src/chat/chat_metrics.gd")
@@ -35,10 +36,10 @@ func restore(data: Dictionary) -> void:
 		for message: Dictionary in chat.get("messages",[]):
 			if message.get("status") not in ["running","queued"]: continue
 			message.status = "interrupted"
-			if message.get("kind") == "compaction": message.text = "Сжатие прервано при выходе"
+			if message.get("kind") == "compaction": message.text = L.text("Сжатие прервано при выходе")
 			if str(message.get("stream",{}).get("text", "")) != "": message.text = message.stream.text
 			message.erase("stream")
-			if str(message.get("text","")).is_empty(): message.text = "Ответ был прерван при выходе из игры. Можно отправить вопрос ещё раз."
+			if str(message.get("text","")).is_empty(): message.text = L.text("Ответ был прерван при выходе из игры. Можно отправить вопрос ещё раз.")
 			for event: Dictionary in message.get("events",[]):
 				if event.get("status") == "running": event.status = "interrupted"
 	if find(selected).is_empty() and not chats.is_empty(): selected = str(chats[0].id)
@@ -51,7 +52,8 @@ func find(id: String) -> Dictionary:
 
 func current() -> Dictionary: return find(selected)
 
-func create(title: String = "Новый чат") -> String:
+func create(title: String = "") -> String:
+	if title.is_empty(): title = L.text("Новый чат")
 	var id: String = _id("chat:")
 	chats.push_front({"id":id,"title":title,"auto_title":true,"created":Time.get_unix_time_from_system(),
 		"updated":Time.get_unix_time_from_system(),"messages":[],"draft":"","pinned":false,"section_id":"","draft_refs":[]})
@@ -111,7 +113,7 @@ func remove(id: String) -> bool:
 func import_native(history: Array, date: String) -> void:
 	if seeded: return
 	seeded = true
-	create("Предыдущий разговор" if not history.is_empty() else "Новый чат")
+	create(L.text("Предыдущий разговор") if not history.is_empty() else L.text("Новый чат"))
 	for row: Dictionary in history:
 		var role: String = "user" if row.get("who") == "player" else "assistant"
 		current().messages.append({"id":_id("message:"),"role":role,"text":str(row.get("what","")),"date":date,"status":"complete","events":[]})
@@ -121,7 +123,7 @@ func context(id: String = "", limit: int = 12) -> Array:
 	var result: Array = []
 	var chat: Dictionary = find(selected if id == "" else id)
 	for message: Dictionary in chat.get("messages",[]):
-		if message.get("status") in ["running","queued"] or str(message.get("text","")).is_empty(): continue
+		if message.get("status") in ["running","queued"] or (message.get("role") == "user" and message.get("status") == "cancelled") or str(message.get("text","")).is_empty(): continue
 		if message.get("role") not in ["user","assistant"]: continue
 		result.append({"who":"player" if message.role == "user" else "ВИ","what":message.text})
 	return result.slice(maxi(0,result.size()-limit))
@@ -146,7 +148,7 @@ func begin(question: String, date: String, chat_id: String = "", refs: Array = [
 	var chat: Dictionary = find(id)
 	if chat.is_empty(): return {}
 	if chat.get("auto_title",true):
-		chat.title = "Новый разговор"
+		chat.title = L.text("Новый разговор")
 		chat.auto_title = false
 		chat["title_from_question"] = false
 		chat["title_pending"] = true
@@ -188,7 +190,7 @@ func model_context(chat_id: String) -> Array:
 		if not started:
 			if row.id == through: started = true
 			continue
-		if row.get("role") not in ["user","assistant"] or row.get("status") in ["running","queued"] or str(row.get("text","")).is_empty(): continue
+		if row.get("role") not in ["user","assistant"] or row.get("status") in ["running","queued"] or (row.get("role") == "user" and row.get("status") == "cancelled") or str(row.get("text","")).is_empty(): continue
 		result.append({"who":"player" if row.role == "user" else "ВИ","what":row.text,"references":row.get("references",[]),"origin":row.get("origin",{})})
 	return result
 
@@ -240,11 +242,11 @@ func record(target: Dictionary, kind: String, payload: Dictionary) -> void:
 			if not str(payload.get("text","")).strip_edges().is_empty(): events.append({"kind":"note","text":str(payload.text)})
 		"format.error":
 			var chart_error: bool = payload.get("code") == "charts.invalid_response"
-			var text: String = ("Исправление диаграммы" if chart_error else "Исправление формата вызова")+" · попытка "+str(payload.attempt)
+			var text: String = (L.text("Исправление диаграммы") if chart_error else L.text("Исправление формата вызова"))+L.text(" · попытка ")+str(payload.attempt)
 			if chart_error and not payload.get("errors",[]).is_empty(): text += "\n"+str(payload.errors[0].get("reason",""))
 			events.append({"kind":"note","text":text,"validation":payload.duplicate(true)})
-		"network.retry": events.append({"kind":"note","text":"Повтор запроса к модели · попытка "+str(payload.attempt)+" · через "+str(ceili(float(payload.delay_ms)/1000))+" с","retry":payload.duplicate(true)})
-		"loop.warning": events.append({"kind":"note","text":"Проверка повторяющихся действий","diagnostic":payload.duplicate(true)})
+		"network.retry": events.append({"kind":"note","text":L.text("Повтор запроса к модели · попытка ")+str(payload.attempt)+L.text(" · через ")+str(ceili(float(payload.delay_ms)/1000))+L.text(" с"),"retry":payload.duplicate(true)})
+		"loop.warning": events.append({"kind":"note","text":L.text("Проверка повторяющихся действий"),"diagnostic":payload.duplicate(true)})
 		"tool.call": events.append({"kind":"tool","id":payload.id,"name":payload.name,"arguments":payload.arguments.duplicate(true),"status":"running","started_ms":now,"elapsed_ms":0})
 		"tool.result":
 			for event: Dictionary in events:
@@ -337,13 +339,13 @@ func sidebar_groups(query: String = "") -> Array:
 		if query != "" and query not in str(chat.title).to_lower(): continue
 		if chat.get("pinned",false): pinned.append(chat)
 		else: regular.append(chat)
-	if not pinned.is_empty(): groups.append({"id":"pinned","title":"Закреплённые","items":pinned,"collapsed":false})
+	if not pinned.is_empty(): groups.append({"id":"pinned","title":L.text("Закреплённые"),"items":pinned,"collapsed":false})
 	for group: Dictionary in sections:
 		var items: Array = regular.filter(func(chat: Dictionary): return chat.get("section_id","") == group.id)
 		if query != "" and items.is_empty() and query not in str(group.title).to_lower(): continue
 		groups.append({"id":group.id,"title":group.title,"items":items,"collapsed":false if query != "" else group.get("collapsed",false)})
 	var ungrouped: Array = regular.filter(func(chat: Dictionary): return section(str(chat.get("section_id",""))).is_empty())
-	if not ungrouped.is_empty(): groups.append({"id":"","title":"Чаты" if not groups.is_empty() else "","items":ungrouped,"collapsed":false})
+	if not ungrouped.is_empty(): groups.append({"id":"","title":L.text("Чаты") if not groups.is_empty() else "","items":ungrouped,"collapsed":false})
 	return groups
 
 func export_chat(id: String, format: String = "markdown") -> String:
@@ -364,7 +366,7 @@ func export_chat(id: String, format: String = "markdown") -> String:
 		var text: String = str(row.get("text",""))
 		if text == "": text = str(row.get("stream",{}).get("text",""))
 		if text == "": continue
-		var speaker: String = "Вы" if row.get("role") == "user" else "ВИ"
+		var speaker: String = L.text("Вы") if row.get("role") == "user" else L.text("ВИ")
 		var date: String = str(row.get("date",""))
 		out.append(("## " if format == "markdown" else "")+speaker+(" — "+date if date != "" else ""))
 		out.append(Markdown.plain_text(text,row.get("events",[])) if format == "text" and row.get("role") == "assistant" else Markdown.expand_chart_references(text,row.get("events",[])))
@@ -372,3 +374,20 @@ func export_chat(id: String, format: String = "markdown") -> String:
 
 func checkpoint_message(summary: String) -> Dictionary:
 	return {"who":"ВИ","what":"Earlier conversation checkpoint. Historic context, not proof of current world facts:\n<compacted-summary>\n"+summary+"\n</compacted-summary>"}
+
+func enqueue_user(text: String, date: String, refs: Array = []) -> bool:
+	if text.strip_edges().is_empty() or current().is_empty(): return false
+	if deliveries.filter(func(delivery: Dictionary): return delivery.get("status") == "queued").size() >= 8: return false
+	var chat: Dictionary = current(); var user_id: String = _id("message:"); var delivery_id: String = _id("delivery:")
+	var headers: Array = reference_headers(refs)
+	chat.messages.append({"id":user_id,"role":"user","text":text,"date":date,"status":"queued","events":[],"references":headers,"origin":{}})
+	deliveries.append({"id":delivery_id,"key":delivery_id,"source_id":"","target_id":chat.id,"user_message_id":user_id,"source_message_id":"","status":"queued","text":text,"origin":{},"references":headers})
+	chat.draft = ""; chat["draft_refs"] = []; changed.emit(); return true
+
+func cancel_queued(message_id: String) -> void:
+	for delivery: Dictionary in deliveries:
+		if delivery.user_message_id != message_id or delivery.status != "queued": continue
+		delivery.status = "cancelled"
+		for message: Dictionary in find(str(delivery.target_id)).get("messages",[]):
+			if message.id == message_id: message.status = "cancelled"
+		changed.emit(); return

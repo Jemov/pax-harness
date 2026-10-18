@@ -1,4 +1,5 @@
 extends Control
+const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## One editor per scope; drafts are committed together to the captured chat.
 const Style = preload("res://mods/pax_harness/src/ui/components/chat_style.gd")
 const Icons = preload("res://mods/pax_harness/src/ui/components/chat_icons.gd")
@@ -37,7 +38,7 @@ func setup(value: Node) -> void:
 	var heading := HBoxContainer.new()
 	heading.add_theme_constant_override("separation",10)
 	column.add_child(heading)
-	var title: Label = ui._label("Инструкции",18,ui.TEXT)
+	var title: Label = ui._label(L.text("Инструкции"),18,ui.TEXT)
 	title.autowrap_mode = TextServer.AUTOWRAP_OFF
 	title.clip_text = true
 	heading.add_child(title)
@@ -46,7 +47,7 @@ func setup(value: Node) -> void:
 	close_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	close_button.name = "CloseInstructions"
 	close_button.focus_mode = Control.FOCUS_ALL
-	close_button.tooltip_text = "Закрыть"
+	close_button.tooltip_text = L.text("Закрыть")
 	close_button.custom_minimum_size = Vector2(32,32)
 	for state: String in ["normal","hover","pressed","focus"]:
 		var background := Color("#292c32") if state == "hover" else Color("#202226") if state == "pressed" else Color.TRANSPARENT
@@ -64,7 +65,7 @@ func setup(value: Node) -> void:
 	scopes.add_theme_constant_override("separation",4)
 	column.add_child(scopes)
 	for scope: String in ["chat","campaign"]:
-		var tab: Button = ui._button("Этот чат" if scope == "chat" else "Вся партия",select_scope.bind(scope))
+		var tab: Button = ui._button(L.text("Этот чат") if scope == "chat" else L.text("Вся партия"),select_scope.bind(scope))
 		tab.name = "ChatScope" if scope == "chat" else "CampaignScope"
 		tab.focus_mode = Control.FOCUS_ALL
 		tab.add_theme_font_size_override("font_size",14)
@@ -75,18 +76,18 @@ func setup(value: Node) -> void:
 	host.custom_minimum_size.y = 100
 	host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(host)
-	campaign = _field(host,"CampaignInstructions",ui.store.campaign_instructions,"Правила для всех чатов этой партии…")
-	current = _field(host,"ChatInstructions",str(ui.store.find(chat_id).get("instructions","")),"Как ВИ должен отвечать и действовать в этом чате…")
+	campaign = _field(host,"CampaignInstructions",ui.store.campaign_instructions,L.text("Правила для всех чатов этой партии…"))
+	current = _field(host,"ChatInstructions",str(ui.store.find(chat_id).get("instructions","")),L.text("Как ВИ должен отвечать и действовать в этом чате…"))
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	buttons.add_theme_constant_override("separation",8)
 	column.add_child(buttons)
-	cancel_button = ui._button("Отмена",dismiss)
+	cancel_button = ui._button(L.text("Отмена"),dismiss)
 	cancel_button.name = "CancelInstructions"
 	cancel_button.focus_mode = Control.FOCUS_ALL
 	cancel_button.custom_minimum_size = Vector2(96,36)
 	buttons.add_child(cancel_button)
-	save_button = ui._button("Сохранить",save)
+	save_button = ui._button(L.text("Сохранить"),save)
 	save_button.name = "SaveInstructions"
 	save_button.focus_mode = Control.FOCUS_ALL
 	save_button.custom_minimum_size = Vector2(112,36)

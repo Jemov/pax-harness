@@ -22,6 +22,7 @@ var _name_keys: Array=[]
 var _name_language: RefCounted
 var _surface_window: PanelContainer
 var _program_windows: Dictionary={}
+var _validated_programs: Dictionary={}
 signal changed
 
 func setup(owner: Node) -> void:
@@ -29,6 +30,7 @@ func setup(owner: Node) -> void:
 	if api != null and api.get("bus") != null and not _bus_registered:
 		api.bus.on("resource_rows",_resource_rows,70,"pax_harness"); _bus_registered=true
 func clear() -> void:
+	_validated_programs.clear()
 	for window: Node in _program_windows.values():
 		if is_instance_valid(window): window.queue_free()
 	_program_windows.clear()
@@ -47,6 +49,7 @@ func clear() -> void:
 		if is_instance_valid(mesh): mesh.queue_free()
 	meshes.clear(); records.clear(); proposals.clear(); sequence=0; game=null; _world_id=0
 func restore(state: Dictionary) -> void:
+	_validated_programs.clear()
 	records=state.get("records",{}).duplicate(true); proposals=state.get("proposals",[]).duplicate(true); sequence=int(state.get("sequence",0))
 func snapshot() -> Dictionary:
 	if current() and game.has_method("body_params"):
@@ -58,6 +61,7 @@ func snapshot() -> Dictionary:
 func world_ready(current: RefCounted) -> void:
 	if _world_id==current.scene_root().get_instance_id():
 		game=current; return
+	_validated_programs.clear()
 	game=current; _world_id=current.scene_root().get_instance_id()
 	for record: Dictionary in records.values():
 		if record.kind=="body": Body.create(self,record.definition)
@@ -108,7 +112,7 @@ func capabilities() -> Dictionary:
 			"ship_flight":"{id,name:{ru,en},object_id:approved object ID (gate_id accepted as an alias; provide exactly one),waypoints_km?:2..16 [x,y,z] points in the object-oriented frame, in km relative to its centre, each coordinate -100000..100000, adjacent points at least .001km apart, total path at most 1e6km; when omitted a single-ring warp_gate gets an automatic central crossing,ship_name:string,spawn_model?:one model ID from ship_flights.models,ship_length_km:0.01..100 (must fit aperture),duration_seconds:5..120,forward_axis?:-z (default)|+z|-x|+x: actual hull nose axis after provider model transforms}. Verify nose-first travel across multiple scene frames, not one still. Read ship_flights availability/fleet first. Omit spawn_model for an idle, unladen, ungrouped player ship in the same system; include it ONLY if player explicitly authorized creating a test ship. Player Apply starts a real registered Dyson ship along the local 3D route. Any approved object, any discovered body; no specific object/body/model IDs are assumed. Use creation.inspect to read geometry first. Paths use constant speed along segments; corners change direction instantly, so add points for gentler turns. This route moves a registered actor; arbitrary gameplay mechanics must be authored separately in object.program. Collision/damage/teleportation are NOT simulated by this route alone; do not claim passage through solid geometry is physically verified. Scene seconds continue while calendar time is paused. This is local flight, NOT interstellar teleportation or paid construction. Progress and endpoint persist; a new native order releases pose control. Missing mod/unsupported ship scene reports a specific error. Replay button starts the same ship again, never duplicates it.",
 			"surface":"{id,name:{ru,en},body:discovered star or gas giant,altitude_km:100..1e8,provinces_count:integer 4..40,climate:{temperature,water,biomass,radiation,atmosphere,urban,magnetic}}. All climate scales 0..1; urban must be zero. Creates a native rock shell at the parent centre, radius parent radius+altitude, with real native provinces/map. Original body is preserved. No population, colony, resources or completed research are granted. This is explicitly approved scenario authoring, not a free normal terraforming order. Saved per campaign; stable body ID harness_surface_<id>. Requires player Apply. Call space.surface on parent to discover the shell.",
 			"common":"id: lowercase a-z0-9_ starting with a letter, up to 48; name:{ru,en}; icon:gate/station/crystal/dust/panel or {rows:[4..16 equal strings of hex palette indices, 0 transparent],palette:[#RRGGBB]}",
-			"behavior":"{id,name:{ru,en},object_id:approved object,program:source per creation.program_schema OR program_patch:[{path:ui.workspace|handlers.event_name|state.key|events,value:replacement}],preserve_state?:true}. Installs or revises an agent-authored program after player Apply. Reusing a behavior ID updates its program; id==object_id updates that object's attached program without replacing geometry; prior state is retained unless preserve_state=false. A revision restarts a faulted/paused behavior. No arbitrary native code. Faults expose exact code/path and stop only that program.",
+			"behavior":"{id,name:{ru,en},object_id:approved object,program:source per creation.program_schema OR program_ref:from creation.validate_program OR program_patch:[{path:ui.workspace|handlers.event_name|state.key|events,value:replacement}],preserve_state?:true}. Installs or revises an agent-authored program after player Apply. Reusing a behavior ID updates its program; id==object_id updates that object's attached program without replacing geometry; prior state is retained unless preserve_state=false. A revision restarts a faulted/paused behavior. No arbitrary native code. Faults expose exact code/path and stop only that program.",
 			"object":"{id,name,body,icon,program?:agent-authored source from creation.program_schema,longitude:-180..180,latitude:-90..90,altitude_km:0..1e9,size_km:0.001..1e7,behavior?:arbitrary identifier tag (no automatic functionality),destructible?:boolean (requires voxel component),model:{size:[integer x,y,z up to 64],palette:[#RRGGBB],shapes:[box(from,to),sphere(center,radius),cylinder(center,radius,height),torus(center,radius,tube,axis),line(from,to,width); each has color index STARTING AT 1, 0 carves. Do NOT insert a black/transparent placeholder in palette. For space gates use a floating ring without a pedestal unless explicitly requested; altitude_km must place it above the body],voxels:[[x,y,z,color]]}}. Max 128 shapes/4096 explicit voxels. Existing discovered body only. Artwork is scenario content, not proof of researched/paid construction.",
 			"object_damage":"{object_id:approved destructible object ID,center:[x,y,z] within its voxel grid,radius:0.25..16}. Player-reviewed removal of a sphere of voxels. Damage persists with the campaign; does not advance time. No terrain changes.",
 			"resource_style":"{resource_id:approved resource ID,text_color:#RRGGBB or null to restore the native default}. Only on an explicit styling request; player Apply required. Changes text color only, never font size or layout. Ordinary resources should retain the native default.",
@@ -126,7 +130,7 @@ func execute(name: String, args: Dictionary, scope: Dictionary) -> Dictionary:
 		var schema: Dictionary=preload("res://mods/pax_harness/src/creation/program_spec.gd").schema()
 		schema["operations"]=preload("res://mods/pax_harness/src/creation/program_host.gd").schema(); schema["actor_adapter"]=preload("res://mods/pax_harness/src/creation/ship_flight.gd").info(api)
 		return {"ok":true,"result":schema}
-	if name=="creation.validate_program": return preload("res://mods/pax_harness/src/creation/program_spec.gd").validate(args.get("program"))
+	if name=="creation.validate_program": return validate_program(args.get("program"))
 	if name=="creation.program_status": return _programs().status(str(args.get("id","")))
 	if name=="creation.inspect":
 		var id: String=str(args.get("object_id",""))
@@ -157,7 +161,26 @@ func _player_request(scope: Dictionary) -> String:
 			return str(preceding.get("text","")) if preceding.get("origin",{}).is_empty() else ""
 		if message.get("role")=="user": preceding=message
 	return ""
+func validate_program(source: Variant) -> Dictionary:
+	var result: Dictionary=preload("res://mods/pax_harness/src/creation/program_spec.gd").validate(source)
+	if not result.ok: return result
+	var reference: String="program:"+JSON.stringify(source).sha256_text()
+	_validated_programs.erase(reference); _validated_programs[reference]=source.duplicate(true)
+	while _validated_programs.size()>16: _validated_programs.erase(_validated_programs.keys()[0])
+	result.result["program_ref"]=reference
+	result.result["next"]="Reuse this program_ref in creation.propose definition instead of repeating program. It is a temporary immutable source reference; player review and normal validation still apply."
+	return result
+func resolve_program(kind: String,definition: Dictionary) -> Dictionary:
+	if not definition.has("program_ref"): return {"ok":true,"definition":definition}
+	if kind not in ["behavior","object","body"] or definition.has("program") or definition.has("program_patch"): return {"ok":false,"code":"program.reference_conflict","detail":"Use one of program, program_ref or program_patch on an object/body/behavior"}
+	var reference: Variant=definition.program_ref
+	if not reference is String or not _validated_programs.has(reference): return {"ok":false,"code":"program.reference_expired","detail":"Source reference is unavailable; validate the program again"}
+	var expanded: Dictionary=definition.duplicate(true); expanded.erase("program_ref"); expanded["program"]=_validated_programs[reference].duplicate(true)
+	return {"ok":true,"definition":expanded}
 func propose(kind: String, definition: Dictionary, request: String) -> Dictionary:
+	var resolved: Dictionary=resolve_program(kind,definition)
+	if not resolved.ok: return resolved
+	definition=resolved.definition
 	if kind=="behavior" and definition.has("program_patch"):
 		var id: String=str(definition.get("object_id",""))
 		if definition.has("program") or not records.has(id): return {"ok":false,"code":"program.patch_target_required"}

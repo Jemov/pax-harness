@@ -109,6 +109,7 @@ func _mod_loaded() -> void:
 	provider_catalog.setup(self)
 	provider_catalog.completed.connect(_catalog_completed)
 	hook("ai_request",_observe_request)
+	hook("ai_request",_observe_usage_ready,-1000000)
 	hook("ai_answer",_observe_chat_usage)
 	Pax.loaded.connect(_mods_loaded)
 	Pax.world_closed.connect(_world_closed)
@@ -748,6 +749,9 @@ func _chat_poll_native() -> void:
 
 func chat_history(arguments: Dictionary, chat_id: String) -> Dictionary:
 	return chat_store.history(chat_id,arguments) if chat_store != null else {"error":"chat_unavailable"}
+
+func _observe_usage_ready(data: Dictionary) -> void:
+	if _router != null: _router.note_final_usage_request(data)
 
 func _observe_chat_usage(data: Dictionary) -> void:
 	if chat_compactor != null: chat_compactor.record_usage(data)

@@ -8,6 +8,7 @@
 
 - Несколько чатов, поиск, разделы, закрепление, переименование и ссылки на другие чаты через `@`.
 - Потоковые ответы, компактная очередь сообщений, уточнения во время работы, редактирование и отмена очереди.
+- Фактические токены и кэш из ответов API, время модели и инструментов, скорость ответа и использование контекста. Статистика сохраняется с чатом; разбивка контекста по частям приблизительная.
 - Инструкции для чата и партии, план задачи, сжатие длинной истории. Переписка и черновики сохраняются с партией.
 - Игровые инструменты для чтения состояния и выполнения доступных действий. Описания подгружаются группами по мере необходимости. В настройках можно отключать отдельные группы и функции.
 - Чтение доступных сущностей модов и управление некоторыми их функциями через наблюдаемые элементы интерфейса, включая меню, раскрывающиеся наведением, и явно экспортированный публичный API. Функции без отдельной кнопки доступны через обнаружение контракта и проверенные аргументы. После действия агент перечитывает результат; отправленный приказ или нажатие кнопки сами по себе не означают завершённую сделку.
@@ -51,6 +52,7 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 
 - Multiple chats, search, sections, pinning, renaming and `@` chat references.
 - Streaming responses, a compact message queue, corrections while working, editing and cancelling queued messages.
+- Actual API token/cache usage, model/tool timings, response speed and context usage. Statistics persist with the chat; context component proportions are approximate.
 - Chat and campaign instructions, task plans and history compaction. Conversations and drafts persist with the campaign.
 - Game-state readers and available game actions. Tool groups load on demand; individual groups and functions can be disabled in settings.
 - Read exposed mod entities and control some mod features through observed interface controls, including hover-revealed menus and explicitly exported public APIs. Functions without dedicated buttons are discovered through their declared contracts and validated arguments. The assistant reads results back after acting; a submitted order or dispatched click alone does not prove a completed transaction.

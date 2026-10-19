@@ -161,6 +161,7 @@ func _step(token: String) -> void:
 	# saved receipts contain references, never encoded pixels or image blocks.
 	for image: Dictionary in s.source.get("user_images",[]):
 		if not s.pending_images.any(func(item: Dictionary): return item.id==image.id) and s.pending_images.size()<Vision.MAX_IMAGES: s.pending_images.append(image)
+	packet["tool_schema_chars"] = JSON.stringify(tools).length()
 	packet["image_token_reserve"] = Vision.token_reserve(s.pending_images)
 	_prepare_packet(token,packet,false)
 

@@ -50,6 +50,7 @@ func start(provider: Node, destination: HTTPRequest, query: Array, channel: Stri
 		"attempt":0,"retry_at":0,"retry_after":"","last_activity":Time.get_ticks_msec(),"started":Time.get_ticks_msec(),"timeout":maxf(1 if timeout_override > 0 else 30,destination.timeout)*1000,"last_emit":0,"shown":""}
 	_set_query(active[channel],prepared)
 	var record: Dictionary = active[channel]
+	if owner_mod._router.has_method("note_transport_query"):record["usage_request_id"]=owner_mod._router.note_transport_query(channel,provider,prepared)
 	if direct:
 		var connected: int = client.connect_to_host(str(record.endpoint.host),int(record.endpoint.port),TLSOptions.client() if record.endpoint.tls else null)
 		if connected != OK:
@@ -342,6 +343,7 @@ func _deliver(channel: String, code: int, bytes: PackedByteArray) -> void:
 	if not active.has(channel): return
 	var r: Dictionary = active[channel]
 	if code >= 200 and code < 300 and owner_mod._router.has_method("normalize_response"): bytes = owner_mod._router.normalize_response(channel,bytes)
+	if owner_mod._router.has_method("record_transport_usage"):owner_mod._router.record_transport_usage(str(r.get("usage_request_id","")),code,bytes)
 	_close(channel)
 	completed_requests += 1
 	if is_instance_valid(r.provider) and is_instance_valid(r.destination): r.provider.call_deferred("_curl_answer",r.destination,code,bytes)

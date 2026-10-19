@@ -319,10 +319,10 @@ func send(packet: Dictionary, done: Callable, task_id: String) -> Dictionary:
 	if attachments.is_empty(): _image_channels.erase(channel)
 	else: _image_channels[channel] = true
 	if _tasks[task_id].has("chat_target"):
-		var definitions: String = JSON.stringify(_owner._tool_registry().catalogue().filter(func(tool: Dictionary): return tool.name in _tasks[task_id].grants))
+		var tool_chars: int = clampi(int(packet.get("tool_schema_chars",0)),0,str(packet.system).length())
 		_usage_pending.append({"id":key,"channel":channel,"target":_tasks[task_id].chat_target.duplicate(),
 			"provider":p,"model":str(p.get("model")),"provider_host":Limits.hostname(str(p.get("base_url"))),
-			"generation":_tasks[task_id].generation,"started_ms":Time.get_ticks_msec(),"context_limit":p.context_window(),"parts":{"system":maxi(0,str(packet.system).length()-definitions.length()),"tools":definitions.length(),"messages":JSON.stringify(packet.data).length()}})
+			"generation":_tasks[task_id].generation,"started_ms":Time.get_ticks_msec(),"context_limit":p.context_window(),"parts":{"system":maxi(0,str(packet.system).length()-tool_chars),"tools":tool_chars,"messages":JSON.stringify(packet.data).length()}})
 	var options: Dictionary = packet.get("options",{})
 	if _tasks[task_id].game!=null and p==Compat.provider(_tasks[task_id].game):
 		_transport[key].callback=Callable()
@@ -535,14 +535,75 @@ func note_usage_request(event: Dictionary) -> void:
 		record.parts.messages = str(event.get("user","")).length()+str(event.get("dossier","")).length()
 		return
 
-func note_transport_identity(event: Dictionary, model: String, provider_host: String) -> void:
-	# Snapshot the actual outgoing query, never saved UI labels, keys or URLs.
-	var fingerprint: String = _usage_fingerprint(event)
+func transport_request_id(channel: String, provider: Node=null) -> String:
+	# Slots have one live transport. Capture this ID before a native callback can
+	# retire the task or reuse the slot; never attribute a response by channel alone.
+	for key: String in _transport:
+		var record: Dictionary=_transport[key]
+		if record.channel==channel and (provider==null or record.provider==provider) and current(str(record.task)):return key
+	return ""
+
+func note_final_usage_request(event: Dictionary) -> void:
+	var key: String=transport_request_id(str(event.get("channel","")))
 	for record: Dictionary in _usage_pending:
-		if record.channel != str(event.get("channel","")) or record.get("fingerprint",fingerprint) != fingerprint: continue
+		if record.id!=key:continue
+		record["fingerprint"]=_usage_fingerprint(event)
+		_set_usage_parts(record,str(event.get("system","")).length(),str(event.get("user","")).length()+str(event.get("dossier","")).length())
+		return
+
+func _set_usage_parts(record: Dictionary, system_chars: int, message_chars: int) -> void:
+	var tools: int=clampi(int(record.parts.get("tools",0)),0,system_chars)
+	record.parts={"system":system_chars-tools,"tools":tools,"messages":message_chars}
+
+func note_transport_identity(event: Dictionary, model: String, provider_host: String) -> void:
+	var fingerprint: String = _usage_fingerprint(event)
+	var key: String=transport_request_id(str(event.get("channel","")))
+	for record: Dictionary in _usage_pending:
+		if record.channel != str(event.get("channel","")):continue
+		if (key!="" and record.id!=key) or (key=="" and record.get("fingerprint",fingerprint)!=fingerprint):continue
+		record["fingerprint"]=fingerprint
 		record["model"] = model
 		record["provider_host"] = provider_host
+		_set_usage_parts(record,str(event.get("system","")).length(),str(event.get("user","")).length()+str(event.get("dossier","")).length())
 		return
+
+func note_transport_query(channel: String, provider: Node, query: Array) -> String:
+	var key: String=transport_request_id(channel,provider)
+	if key=="" or query.size()!=3 or not query[2] is Dictionary:return key
+	for record: Dictionary in _usage_pending:
+		if record.id!=key:continue
+		record["model"]=str(query[2].get("model",record.get("model","")))
+		record["provider_host"]=Limits.hostname(str(query[0]))
+		var system_chars: int=_usage_text_chars(query[2].get("system",""));var message_chars:=0
+		for message: Dictionary in query[2].get("messages",[]):
+			var count: int=_usage_text_chars(message.get("content",""))
+			if message.get("role") in ["system","developer"]:system_chars+=count
+			else:message_chars+=count
+		_set_usage_parts(record,system_chars,message_chars)
+		break
+	return key
+
+static func _usage_text_chars(content: Variant) -> int:
+	if content is String:return content.length()
+	var count:=0
+	if content is Array:
+		for block: Variant in content:
+			if block is Dictionary and block.get("type")=="text" and block.get("text") is String:count+=block.text.length()
+	return count
+
+func record_transport_usage(key: String, code: int, bytes: PackedByteArray) -> void:
+	if key=="" or code<200 or code>=300:return
+	var body: Variant=JSON.parse_string(bytes.get_string_from_utf8())
+	if not body is Dictionary:return
+	for record: Dictionary in _usage_pending:
+		if record.id==key:
+			_commit_usage(record,body.get("usage",{}) if body.get("usage") is Dictionary else {})
+			return
+
+func _commit_usage(record: Dictionary, usage: Dictionary) -> void:
+	_usage_pending.erase(record)
+	if record.generation != _owner._source_generation:return
+	_owner._chat_usage(record.target,{"id":record.id,"elapsed_ms":maxi(0,Time.get_ticks_msec()-int(record.started_ms)),"usage":usage,"context_limit":record.context_limit,"parts":record.parts,"model":str(record.get("model","")),"provider_host":str(record.get("provider_host",""))})
 
 func _usage_fingerprint(event: Dictionary) -> String:
 	return (str(event.get("system",""))+"\n"+str(event.get("user",""))+"\n"+str(event.get("dossier",""))).sha256_text()
@@ -551,9 +612,7 @@ func record_usage(event: Dictionary) -> void:
 	var fingerprint: String = _usage_fingerprint(event)
 	for record: Dictionary in _usage_pending:
 		if record.channel != str(event.get("channel","")) or record.get("fingerprint",fingerprint) != fingerprint: continue
-		_usage_pending.erase(record)
-		if record.generation != _owner._source_generation: return
-		_owner._chat_usage(record.target,{"id":record.id,"elapsed_ms":maxi(0,Time.get_ticks_msec()-int(record.started_ms)),"usage":event.get("usage",{}),"context_limit":record.context_limit,"parts":record.parts,"model":str(record.get("model","")),"provider_host":str(record.get("provider_host",""))})
+		_commit_usage(record,event.get("usage",{}) if event.get("usage") is Dictionary else {})
 		return
 
 func stream_owned(channel: String) -> bool:

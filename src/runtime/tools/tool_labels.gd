@@ -5,7 +5,7 @@ const LABELS := {"orders.failed":"Архив проваленных планов
 	"diplomacy.offers":"Предложения и переписка страны","diplomacy.exchange":"Предложить обмен ресурсами","diplomacy.accept_offer":"Заключить предложенную сделку",
 	"creation.open_controls":"Открыть управление",
 	"tools.groups":"Группы инструментов","tools.load":"Загрузка группы инструментов",
-	"ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",
+	"ui.pointer":"Виртуальный курсор", "ui.keyboard":"Ввод в игровое поле", "ui.panels":"Доступные окна игры","ui.open":"Открыть окно игры","ui.screenshot":"Снимок игрового окна","images.status":"Проверить генератор изображений","images.generate":"Создать изображение",
 	"prompts.list":"Промпты лаборатории","prompts.read":"Чтение инструкций","prompts.update":"Изменение инструкций",
 	"prompts.patch":"Правка инструкций","plan.read":"План задачи","plan.update":"Сохранение плана","instructions.read":"Постоянные инструкции","instructions.update":"Сохранение инструкций","trace.read":"Журнал действий","trace.replay":"Запись прошлого действия","analysis.delegate":"Независимый анализ",
 	"orders.update":"Изменить приказ","orders.cancel":"Отменить приказ","world.read":"Обзор мира","history.read":"История мира",

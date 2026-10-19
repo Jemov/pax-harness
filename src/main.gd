@@ -54,6 +54,9 @@ var chat_store: RefCounted
 var chat_stream: Node
 var chat_ui: Node
 var _ui_capture: Node
+var _virtual_input: Node
+var screen_images: RefCounted
+var _screen_session: Node
 var _image_generation: Node
 var _settings_ui: Node
 var order_archive: RefCounted
@@ -88,6 +91,10 @@ func _mod_loaded() -> void:
 	_ui_capture = load_resource("src/ui/game/ui_capture.gd").new()
 	add_child(_ui_capture)
 	_ui_capture.setup(self)
+	_virtual_input=load_resource("src/ui/game/virtual_input.gd").new()
+	add_child(_virtual_input); _virtual_input.setup(self,_ui_capture)
+	screen_images=load_resource("src/images/screen_images.gd").new();screen_images.setup(self)
+	_screen_session=load_resource("src/ui/game/screen_session.gd").new();add_child(_screen_session);_screen_session.setup(self)
 	_image_generation = load_resource("src/images/image_generation.gd").new()
 	add_child(_image_generation)
 	_image_generation.setup(self)
@@ -154,7 +161,10 @@ func _world_ready(game: PaxGame) -> void:
 	_attach_transport.call_deferred()
 
 func _reset() -> void:
+	for viewer: Node in load_resource("src/ui/images/image_viewer.gd").open_views(): viewer.queue_free()
+	if is_instance_valid(_screen_session): _screen_session.end()
 	if is_instance_valid(_creations): _creations.clear()
+	if is_instance_valid(_virtual_input): _virtual_input.clear()
 	if is_instance_valid(_ui_capture): _ui_capture.clear()
 	if is_instance_valid(_image_generation): _image_generation.clear_jobs()
 	if is_instance_valid(chat_stream): chat_stream.cancel_all()
@@ -192,6 +202,10 @@ func _mod_unloaded() -> void:
 		_settings_ui.queue_free()
 	_settings_ui = null
 	_world_closed()
+	if is_instance_valid(_screen_session): _screen_session.queue_free()
+	_screen_session=null
+	if is_instance_valid(_virtual_input): _virtual_input.queue_free()
+	_virtual_input=null
 	if is_instance_valid(_ui_capture): _ui_capture.queue_free()
 	_ui_capture = null
 	if is_instance_valid(_image_generation): _image_generation.queue_free()
@@ -249,11 +263,19 @@ func resolve_image_attachment(handle: Dictionary, provider: Node) -> Dictionary:
 	if handle.get("source")=="user_reference": return reference_images.resolve(handle)
 	return _ui_capture.resolve_image(handle,vision_context(provider)) if is_instance_valid(_ui_capture) else {"ok":false,"code":"ui.screenshot_unavailable","errors":["Screenshot expired or no longer available."]}
 
+func mark_game_images_delivered(handles: Array, provider: Node) -> void:
+	if is_instance_valid(_ui_capture): _ui_capture.mark_delivered(handles,vision_context(provider))
+
+func invalidate_game_input_frames() -> void:
+	if is_instance_valid(_virtual_input): _virtual_input.release_hover()
+	if is_instance_valid(_ui_capture): _ui_capture.invalidate_input_frames()
+
 func resolve_image(handle: Dictionary) -> Dictionary:
 	return resolve_image_attachment(handle,StockCompat.provider(_game) if _game_available() else null)
 
 func ui_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictionary:
 	if not is_instance_valid(_ui_capture) or not _game_available(): return {"ok":false,"code":"ui.inactive_world"}
+	if name in ["ui.pointer","ui.keyboard"]: return _virtual_input.execute(_game,name,arguments,scope)
 	if name=="ui.open" and arguments.get("panel")=="harness.creations":
 		return {"ok":true,"result":{"panel":"harness.creations","visible":_creations.open_review(),"world_changed":false}}
 	if name == "ui.open" and arguments.get("panel") == "settings.harness":
@@ -541,6 +563,8 @@ func _chat_send_to(chat_id: String, text: String, refs: Array = [], origin: Dict
 	if text.strip_edges().is_empty() and not images.is_empty(): text=L.text("Рассмотри прикреплённое изображение.")
 	if images.size()>2 or images.any(func(image: Variant): return not Vision.valid_reference(image) or image.get("source")!="user_reference"): return false
 	if not _game_available() or chat_store == null or chat_busy() or text.strip_edges().is_empty() or chat_store.find(chat_id).is_empty(): return false
+	if origin.is_empty() and is_instance_valid(_virtual_input): _virtual_input.resume_for_player_task()
+	if origin.is_empty() and is_instance_valid(_screen_session): _screen_session.resume_for_player_task()
 	var provider: Node = _current_provider()
 	var main: Node = _game.main
 	main.player.assistant_history = chat_store.context(chat_id)
@@ -632,6 +656,9 @@ func chat_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictio
 	return chat_tools.execute(name,arguments,scope)
 
 func chat_stop() -> void:
+	if is_instance_valid(_screen_session): _screen_session.end()
+	invalidate_game_input_frames()
+	if is_instance_valid(_virtual_input): _virtual_input.cancel_all()
 	if chat_compactor != null: chat_compactor.cancel()
 	if not _chat_pending.is_empty() and chat_store != null:
 		chat_store.finish(_chat_pending,L.text("Ответ остановлен."),false,"cancelled")
@@ -681,6 +708,9 @@ func _chat_event(kind: String, payload: Dictionary, task_id: String) -> void:
 
 func _chat_done(task: Dictionary, result: Dictionary) -> void:
 	if chat_store == null or not task.has("chat_target"): return
+	if is_instance_valid(_screen_session): _screen_session.end(not is_instance_valid(_virtual_input) or not _virtual_input.suspended)
+	if is_instance_valid(_virtual_input): _virtual_input.cancel_all()
+	invalidate_game_input_frames()
 	var ok: bool = bool(result.get("ok",false))
 	var code: String = str(result.get("code",""))
 	var text: String = str(task.get("chat_reply",result.get("message",""))) if ok else str(result.get("failure",{}).get("message",_chat_error(code)))
@@ -769,6 +799,8 @@ func _tool_registry() -> RefCounted:
 
 func _localization_roots() -> Array:
 	var roots: Array = [chat_ui]
+	if is_instance_valid(_screen_session): roots.append(_screen_session.chrome)
+	roots.append_array(load_resource("src/ui/images/image_viewer.gd").open_views())
 	if is_instance_valid(_creations) and is_instance_valid(_creations.view): roots.append(_creations.view.window)
 	if is_instance_valid(_creations): roots.append_array(_creations._program_windows.values())
 	if is_instance_valid(_creations):

@@ -37,7 +37,7 @@ func setup(game: RefCounted, owner_mod: Node = null, world_generation: Variant =
 func catalogue(include_unavailable_vision: bool = false) -> Array:
 	var result: Array = []
 	for definition: Dictionary in _definitions():
-		if definition.name == "ui.screenshot" and not _vision_enabled() and not include_unavailable_vision: continue
+		if definition.name in ["ui.screenshot","ui.pointer","ui.keyboard"] and not _vision_enabled() and not include_unavailable_vision: continue
 		var row: Dictionary = definition.duplicate(true)
 		row["enabled"] = Permissions.allowed(_owner,row.name)
 		row["available"] = _active() and _available(row)
@@ -87,6 +87,8 @@ func dispatch(call: Dictionary, scope: Dictionary) -> Dictionary:
 	# Recheck the captured facade immediately before invoking every handler.
 	# The owned runtime checks identity with the official current-world singleton.
 	if not _active(): return _failure(name,call_id,PackedStringArray(["tools.inactive_or_replaced_world"]))
+	if name not in ["ui.pointer","ui.keyboard"] and (definition.get("mutates_world",false) or name in ["ui.open","mods.act","mods.invoke","creation.focus","creation.open_controls"]):
+		if is_instance_valid(_owner) and _owner.has_method("invalidate_game_input_frames"): _owner.call("invalidate_game_input_frames")
 	var guarded: Dictionary = guard.check(_game,name,checked.arguments)
 	if not guarded.get("ok",false): return complete(call,guarded)
 	var executed: Dictionary
@@ -153,7 +155,7 @@ func _available(row: Dictionary) -> bool:
 	if name.begins_with("creation."): return is_instance_valid(_owner) and is_instance_valid(Data.property(_owner,"_creations"))
 	if name.begins_with("space.") or name in ["navigation.enter_system","navigation.open_surface"]: return Space.available(_game,name)
 	if name.begins_with("images."): return is_instance_valid(_owner) and _owner.has_method("image_tool")
-	if name.begins_with("ui."): return is_instance_valid(_owner) and _owner.has_method("ui_tool") and UiPanels.main_node(_game) != null and (name != "ui.screenshot" or _vision_enabled())
+	if name.begins_with("ui."): return is_instance_valid(_owner) and _owner.has_method("ui_tool") and UiPanels.main_node(_game) != null and (name not in ["ui.screenshot","ui.pointer","ui.keyboard"] or _vision_enabled())
 	if name in ["charts.function","charts.describe","charts.map_sources","datasets.transform","datasets.read","datasets.chart","statistics.calculate"]: return true
 	if name == "charts.map": return ChartMap.available(_game) or (is_instance_valid(_owner) and _owner.has_method("map_provider_tool"))
 	if name == "analytics.read": return ChartData.available(_game)

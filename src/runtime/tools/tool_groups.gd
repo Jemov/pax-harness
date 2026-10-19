@@ -7,7 +7,7 @@ const INFO := {
 	"charts":["Charts and tables","Visualization schemas, datasets, transformations and statistics."],
 	"maps":["Maps and provinces","Land, water and mod map layers; province observations."],
 	"analytics":["Analytics and mod data","Discover and page installed-mod data sources; resource history."],
-	"ui":["Game interface","Inspect/open native panels and capture the game screen when vision is enabled."],
+	"ui":["Game interface","Inspect/open native panels. Vision models can capture the game screen and use a visible virtual cursor/field input as a fallback for custom UI without API/control access; no system mouse or clipboard."],
 	"images":["Image generation","Status and generation through the configured native image service."],
 	"space":["Space and navigation","Find bodies/stars, read project rules, navigate systems and ships."],
 	"economy":["Economy","Resources, stocks and money."],

@@ -378,6 +378,7 @@ func _transport_answer(channel: String, response: Dictionary, mark: Variant, key
 	_transport.erase(key)
 	if is_instance_valid(record.provider) and record.provider.is_connected("channel_ready",record.callback): record.provider.disconnect("channel_ready",record.callback)
 	if record.has("stream_error"): response = {"error":record.stream_error,"failure":record.get("stream_failure",{})}
+	_mark_images_seen(record,response)
 	if record.done.is_valid(): record.done.call(response.duplicate(true))
 
 func public_answer(response: Dictionary,key: String) -> void:
@@ -385,7 +386,13 @@ func public_answer(response: Dictionary,key: String) -> void:
 	var record: Dictionary=_transport[key]
 	if record.has("stream_error"): response = {"error":record.stream_error,"failure":record.get("stream_failure",{})}
 	_transport.erase(key)
+	_mark_images_seen(record,response)
 	if record.done.is_valid(): record.done.call(response.duplicate(true))
+
+func _mark_images_seen(record: Dictionary, response: Dictionary) -> void:
+	if response.has("error") or response.has("failure") or record.has("stream_error"): return
+	if is_instance_valid(_owner) and _owner.has_method("mark_game_images_delivered"):
+		_owner.call("mark_game_images_delivered",record.get("request_attachments",[]),record.provider)
 
 static func _copy(value: Variant) -> Variant:
 	return value.duplicate(true) if value is Dictionary or value is Array else value

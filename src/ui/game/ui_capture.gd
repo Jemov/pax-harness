@@ -1,5 +1,5 @@
 extends Node
-## Bounded RAM-only game images. Image bytes never enter a receipt or save.
+## Expiring RAM-only model grants; exact preview pixels use separate player storage.
 const Png = preload("res://mods/pax_harness/src/images/ui_png.gd")
 const Panels = preload("res://mods/pax_harness/src/ui/game/ui_panels.gd")
 const Job = preload("res://mods/pax_harness/src/ui/game/ui_capture_job.gd")
@@ -11,6 +11,43 @@ var owner_mod: Node
 var _images: Dictionary = {}
 var _jobs: Array = []
 var _clock: Callable = Time.get_ticks_msec
+signal player_input
+var input_epoch := 0
+var _input_window: WeakRef
+func watch_viewport(viewport: Viewport) -> void:
+	if not viewport is Window: return
+	if _input_window!=null and _input_window.get_ref()==viewport: return
+	_unwatch_window()
+	_input_window=weakref(viewport)
+	# Window receives native input before Controls can consume it.
+	viewport.window_input.connect(_input)
+func _unwatch_window() -> void:
+	var window: Variant=_input_window.get_ref() if _input_window!=null else null
+	if is_instance_valid(window) and window.is_connected("window_input",_input): window.disconnect("window_input",_input)
+	_input_window=null
+func _input(event: InputEvent) -> void:
+	if (event is InputEventMouse or event is InputEventKey) and event.device!=10071 and not event.get_meta("pax_harness_virtual",false):
+		invalidate_input_frames();player_input.emit()
+func invalidate_input_frames() -> void: input_epoch+=1
+func mark_delivered(handles: Array, selected: Dictionary) -> void:
+	for handle: Dictionary in handles:
+		var id: String=str(handle.get("id",""))
+		if handle.get("source")=="game_viewport" and _images.has(id) and resolve_image(handle,selected).get("ok",false): _images[id]["delivered"]=true
+		if _images.has(id) and _images[id].get("delivered",false) and "screen_images" in owner_mod and owner_mod.screen_images!=null:
+			owner_mod.screen_images.mark_observed(_images[id].get("preview",{}))
+	if "chat_store" in owner_mod and owner_mod.chat_store!=null: owner_mod.chat_store.changed.emit()
+func input_frame(id: String, game: RefCounted, selected: Dictionary, consume: bool) -> Dictionary:
+	var resolved: Dictionary=resolve_image(id,selected)
+	if not resolved.get("ok",false): return resolved
+	var entry: Dictionary=_images[id]
+	if not entry.get("delivered",false): return {"ok":false,"code":"ui.image_not_observed","result":{"instruction":"Receive and inspect ui.screenshot as an image before virtual input. Text-only or rejected image requests cannot authorize clicks."}}
+	if entry.get("consumed",false) or entry.epoch!=input_epoch: return {"ok":false,"code":"ui.image_view_changed"}
+	var main: Node=Panels.main_node(game)
+	var viewport: Variant=entry.viewport.get_ref() if entry.viewport!=null else null
+	if main==null or not is_instance_valid(viewport) or viewport!=main.get_viewport() or viewport.get_visible_rect().size!=entry.size: return {"ok":false,"code":"ui.image_view_changed"}
+	if consume:
+		for old: Dictionary in _images.values(): old["consumed"]=true
+	return {"ok":true,"viewport":viewport,"size":entry.size,"width":entry.descriptor.width,"height":entry.descriptor.height,"epoch":input_epoch}
 
 func setup(owner: Node) -> void:
 	owner_mod = owner; name = "HarnessUiCapture"; process_mode = Node.PROCESS_MODE_ALWAYS
@@ -39,6 +76,8 @@ func execute(game: RefCounted, tool: String, args: Dictionary, scope: Dictionary
 	var selected: Dictionary = context()
 	if not bool(selected.get("enabled",false)): return {"ok":false,"code":"ui.vision_disabled"}
 	if not current(game,selected): return {"ok":false,"code":"ui.world_changed"}
+	var session: Variant=owner_mod.get("_screen_session") if "_screen_session" in owner_mod else null
+	if is_instance_valid(session) and session.paused:return {"ok":false,"code":"ui.screen_view_paused","result":{"instruction":"The player returned to chat and paused screen interaction. Do not reopen it. Finish in text and wait for a new player message."}}
 	_jobs = _jobs.filter(func(job):return is_instance_valid(job) and not job.finished)
 	if not _jobs.is_empty(): return {"ok":false,"code":"ui.capture_busy"}
 	var job: Node = Job.new(); add_child(job); _jobs.append(job)
@@ -58,8 +97,16 @@ func retain(image: Image, game: RefCounted, selected: Dictionary) -> Dictionary:
 	while _images.size()>=MAX_IMAGES: _images.erase(_images.keys()[0])
 	var id: String = Crypto.new().generate_random_bytes(16).hex_encode()
 	var descriptor := {"id":id,"mime_type":encoded.mime_type,"width":encoded.width,"height":encoded.height,"byte_size":encoded.bytes.size(),"source":"game_viewport"}
-	_images[id] = {"bytes":encoded.bytes,"descriptor":descriptor,"identity":identity(selected),"game":weakref(game),"expires":int(_clock.call())+TTL_MSEC}
-	return {"ok":true,"result":{"image_attachment":descriptor,"capture_scope":"game_viewport_only","harness_chat_hidden":true,"expires_in_seconds":120,"persistent":false}}
+	var main: Node=Panels.main_node(game)
+	var viewport: Viewport=main.get_viewport() if main!=null and main.is_inside_tree() else null
+	if viewport!=null: watch_viewport(viewport)
+	_images[id] = {"delivered":false,"consumed":false,"epoch":input_epoch,"viewport":weakref(viewport) if viewport!=null else null,"size":viewport.get_visible_rect().size if viewport!=null else Vector2.ZERO,"bytes":encoded.bytes,"descriptor":descriptor,"identity":identity(selected),"game":weakref(game),"expires":int(_clock.call())+TTL_MSEC}
+	var preview: Dictionary={}
+	if "screen_images" in owner_mod and owner_mod.screen_images!=null: preview=owner_mod.screen_images.retain(encoded.bytes,encoded.width,encoded.height)
+	_images[id]["preview"]=preview
+	var observation: Dictionary={"image_attachment":descriptor,"capture_scope":"game_viewport_only","harness_chat_hidden":true,"expires_in_seconds":120,"persistent":false}
+	if not preview.is_empty():observation["screenshot_preview"]=preview
+	return {"ok":true,"result":observation}
 
 static func encode(image: Image) -> Dictionary:
 	if image==null or image.is_empty(): return {"ok":false,"code":"ui.empty_framebuffer"}
@@ -92,6 +139,7 @@ func resolve_image(handle: Variant, selected: Dictionary) -> Dictionary:
 	return {"ok":true,"bytes":entry.bytes.duplicate(),"mime_type":entry.descriptor.mime_type,"width":entry.descriptor.width,"height":entry.descriptor.height}
 
 func clear() -> void:
+	_unwatch_window()
 	for job: Variant in _jobs:
 		if is_instance_valid(job):
 			job.cancel()

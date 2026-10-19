@@ -15,6 +15,8 @@
 - **39 видов диаграмм**, графики функций, таблицы с поиском, сортировкой, страницами и экспортом CSV. Расчёты и иллюстративные примеры отделяются от наблюдаемых игровых данных.
 - Карты провинций, морей, озёр и побережий с изменениями текущего сценария и модов. Поиск небесных тел и звёзд, переход к реальным объектам игрового космоса.
 - Открытие зарегистрированных игровых панелей. Снимки игрового экрана для моделей с разрешённым и поддерживаемым входом изображений.
+- **Видимый виртуальный курсор внутри игры** для интерфейсов без доступного API: наведение, клики, перетаскивание, прокрутка и ввод текста. Только для моделей с поддержкой изображений; после действия — новый снимок для проверки. Системная мышь остаётся у игрока; его ввод прерывает действие агента.
+- Просмотренные моделью снимки показываются миниатюрами в сообщении и открываются целиком на весь экран. На время серии действий чат сворачивается один раз; доступны возврат и остановка.
 - Генерация иллюстраций через настроенный игровой генератор, включая ComfyUI с API workflow. До двух картинок-референсов в сообщении; если модель не принимает изображения, текст всё равно отправляется с предупреждением.
 - **Создание собственных воксельных объектов и иконок по запросу.** 3D-предпросмотр с вращением и масштабированием прямо в чате, переход камерой к применённому объекту в космосе.
 - Новые ресурсы, панели объектов, искусственные миры и поверхности звёзд или газовых гигантов с нативными территориями.
@@ -56,6 +58,8 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 - **39 chart types**, function plots, searchable/sortable/paged tables and CSV export. Calculations and illustrative examples are distinguished from observed game data.
 - Province, sea, lake and coastline maps include current scenario/mod changes. Search actual bodies and stars and navigate the game's space catalogue.
 - Open registered game panels. Capture the game viewport for models with explicitly enabled and supported image input.
+- **Visible virtual cursor inside the game** for interfaces without usable APIs: hover, clicks, dragging, scrolling and text entry. Vision models only; each action returns a fresh screenshot for verification. The player keeps the system mouse and their input interrupts the agent.
+- Exact model screenshots appear as clickable transcript thumbnails with full-window viewing. Chat hides once for a complete interaction sequence; return and stop controls stay available.
 - Generate illustrations through the configured game image service, including ComfyUI API workflows. Attach up to two image references; when image input is unavailable, text still goes through with a warning.
 - **Author custom voxel objects and icons on request.** Rotate and zoom their 3D previews directly in chat and focus the space camera on an applied object.
 - New resources, object panels, artificial worlds and surfaces for stars/gas giants with native territories.

@@ -13,6 +13,9 @@ func setup(service: Node, descriptor: Dictionary) -> void:
 	_picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_picture.size_flags_horizontal = Control.SIZE_EXPAND_FILL; add_child(_picture)
+	_picture.mouse_default_cursor_shape=Control.CURSOR_POINTING_HAND
+	_picture.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT:preload("res://mods/pax_harness/src/ui/images/image_viewer.gd").open(self,resolved.texture,"",["Созданное изображение"]))
 	resized.connect(_resize_image); _resize_image()
 	var caption := Label.new(); L.bind(caption,"text",[{"format":"Создано генератором игры · %d × %d","args":[resolved.descriptor.width,resolved.descriptor.height]}])
 	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; add_child(caption)

@@ -20,6 +20,8 @@ func setup(owner: Node, facade: RefCounted, context: Dictionary, task_scope: Dic
 
 func alive() -> bool:
 	if finished or not is_instance_valid(service) or not service.current(game,selected): return false
+	var session: Variant=Data.property(service.owner_mod,"_screen_session")
+	if is_instance_valid(session) and session.paused:return false
 	var check: Variant = scope.get("is_current")
 	return bool(check.call()) if check is Callable and check.is_valid() else true
 
@@ -41,9 +43,12 @@ func _run() -> void:
 	if main==null or not main.is_inside_tree(): _finish({"ok":false,"code":"ui.game_viewport_unavailable"}); return
 	var viewport: Viewport = main.get_viewport()
 	if viewport==null or DisplayServer.get_name()=="headless": _finish({"ok":false,"code":"ui.rendered_framebuffer_unavailable"}); return
+	var session: Variant=Data.property(service.owner_mod,"_screen_session")
+	var stable_view: bool=session is Node and is_instance_valid(session) and session.begin()
 	var chat: Variant = Data.property(service.owner_mod,"chat_ui")
-	_hide(chat)
-	_hide(Data.property(chat,"native"))
+	if not stable_view:
+		_hide(chat)
+		_hide(Data.property(chat,"native"))
 	# The visible panel behind Harness is rendered on the next frame.
 	await get_tree().process_frame
 	if not alive(): _finish({"ok":false,"code":"ui.capture_cancelled"}); return

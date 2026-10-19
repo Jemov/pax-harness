@@ -59,5 +59,8 @@ static func message_preview(ui: Node,parent: Node,images_: Array,warning: String
 		if texture==null: continue
 		var image:=TextureRect.new(); image.name="AttachedReferenceImage"; image.texture=texture; image.custom_minimum_size=Vector2(240,135); image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; parent.add_child(image)
 		image.tooltip_text=str(handle.get("name","image"))
+		image.mouse_default_cursor_shape=Control.CURSOR_POINTING_HAND
+		image.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT:preload("res://mods/pax_harness/src/ui/images/image_viewer.gd").open(ui,texture,str(handle.get("name","image"))))
 	if warning!="":
 		var label:=Label.new(); label.name="ImageInputWarning"; label.text=warning; label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; label.add_theme_color_override("font_color",ui.QUIET); parent.add_child(label)

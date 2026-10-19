@@ -550,6 +550,10 @@ func _render_message(message: Dictionary) -> Control:
 		gallery = preload("res://mods/pax_harness/src/ui/images/generated_image_gallery.gd").new(); gallery.name = "GeneratedImages"; view.add_child(gallery)
 	var generator: Variant = owner_mod.get("_image_generation")
 	gallery.update_images(generator if generator is Node and is_instance_valid(generator) else null,Markdown.generated_images(message.get("events",[])) if message.get("role") == "assistant" else [])
+	var screens: Node=view.get_node_or_null("ScreenImages")
+	if screens==null:
+		screens=preload("res://mods/pax_harness/src/ui/images/screen_image_gallery.gd").new();screens.name="ScreenImages";view.add_child(screens)
+	screens.update_images(self,message.get("events",[]) if message.get("role")=="assistant" else [])
 	return view
 
 func _toggle(key: String) -> void:

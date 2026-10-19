@@ -128,3 +128,6 @@ Ask the assistant to create both a model and its working behavior. It writes a p
 Apply the reviewed model and program together in the chat card. Its fields and buttons work in that card. Events then run independently, and state persists with the campaign. You can pause a program; revisions require another approval. A fault stops that program and reports its exact cause and source path to the assistant. Completed world actions remain in effect.
 
 For example, request floating gates, an exit near another body, charge and hull-clearance checks, a transfer counter and a recharge button. With Dyson Sphere Program installed, the authored program can relocate the same native ship to a calculated destination while retaining cargo and health. It uses general operations rather than a built-in gate-link behavior. See the [program format](entity-programs.en.md).
+
+
+**Virtual input:** visible in-game fallback for interfaces without APIs, for vision models only. [Usage and limitations](virtual-input.md).

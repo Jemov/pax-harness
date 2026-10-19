@@ -367,7 +367,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 		s.ledger[call.id].receipt = receipt.duplicate(true)
 		s.receipts.append(receipt.duplicate(true))
 		var image: Variant = receipt.get("result",{}).get("image_attachment") if receipt.get("result") is Dictionary else null
-		if receipt.get("status") == "complete" and image != null:
+		if receipt.get("status") in ["complete","dispatched"] and image != null:
 			if not Vision.valid_reference(image):
 				_end(token,false,"vision_invalid_reference")
 				return

@@ -7,6 +7,11 @@ static func make(code: String, details: Variant = {}, http_status: int = 0) -> D
 	var retryable := false
 	if code == "cancelled": category = "cancelled"; message = L.text("Запрос остановлен.")
 	elif code == "tools.disabled_by_player": category = "permission"; message = L.text("Инструмент выключен игроком в настройках Харнеса.")
+	elif code in ["ui.vision_disabled","ui.image_not_observed"]: category="permission"; message=L.text("Виртуальный ввод доступен после просмотра игрового снимка моделью с поддержкой изображений.")
+	elif code in ["ui.input_interrupted","ui.player_input_active"]: category="conflict"; message=L.text("Виртуальный ввод остановлен: управление у игрока или задача отменена. Для продолжения отправьте новое сообщение.")
+	elif code=="ui.screen_view_paused": category="conflict";message=L.text("Работа с экраном приостановлена. Для продолжения отправьте новое сообщение.")
+	elif code=="ui.input_focus_required": category="tool"; message=L.text("Сначала выберите игровое поле виртуальным курсором.")
+	elif code=="ui.input_readback_failed": category="tool"; message=L.text("Ввод отправлен, но новый снимок получить не удалось. Проверьте экран перед повтором.")
 	elif code == "vision_input_disabled": category = "permission"; message = L.text("Передача изображений выключена для этой модели. Включите профиль и «Изображения на вход» в тонкой настройке.")
 	elif code == "vision_unsupported_transport": category = "provider"; message = L.text("Этот формат API пока не поддерживает передачу снимков. Поддерживаются Chat Completions, Responses, Messages и Gemini.")
 	elif code == "images.not_configured": category = "configuration"; message = L.text("Генератор изображений не настроен. Откройте Настройки → Нейросеть → Генерация фото.")

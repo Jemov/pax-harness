@@ -101,7 +101,7 @@ Configure an image generator in **Settings → AI → Image generation**. Ask th
 
 For ComfyUI, export a workflow in API JSON format and select its positive prompt field in Harness settings. The server connection comes from the game. Keep access keys out of workflow files. Images are stored with chat metadata and shown in the conversation gallery.
 
-To let a vision-capable model inspect the game, enable its profile and **Image input** in AI tuning. The API and model must accept images. The screenshot tool captures the game viewport with chat temporarily hidden; it does not capture unrelated desktop windows. A text-only model does not acquire vision by enabling this setting.
+Image support is detected automatically. Enabling a generation profile is not required. [How Auto works](vision-auto.md). The API and model must accept images. The screenshot tool captures the game viewport with chat temporarily hidden; it does not capture unrelated desktop windows. A text-only model does not acquire vision by enabling this setting.
 
 ## Languages and files
 

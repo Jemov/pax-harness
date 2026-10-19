@@ -27,6 +27,7 @@ func execute(game: RefCounted, tool: String, args: Dictionary, scope: Dictionary
 	if is_instance_valid(active) and not active.finished: return {"ok":false,"code":"ui.input_busy"}
 	if Input.is_anything_pressed(): return {"ok":false,"code":"ui.player_input_active"}
 	var selected: Dictionary=capture.context()
+	if not selected.get("verified",true):return {"ok":false,"code":"vision_check_unconfirmed"}
 	var frame: Dictionary=capture.input_frame(args.get("image_id",""),game,selected,false)
 	if not frame.get("ok",false): return frame
 	var viewport: Viewport=frame.viewport

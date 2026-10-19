@@ -39,6 +39,13 @@ func _restore() -> void:
 
 func _run() -> void:
 	if not alive(): _finish({"ok":false,"code":"ui.capture_cancelled"}); return
+	if service.owner_mod.has_method("ensure_vision"):
+		_deadline=Time.get_ticks_msec()+35000
+		var checked: Dictionary=await service.owner_mod.ensure_vision(scope)
+		if finished:return
+		if not checked.get("ok",false):_finish(checked);return
+		if not alive():_finish({"ok":false,"code":"ui.capture_cancelled"});return
+		_deadline=Time.get_ticks_msec()+4000
 	var main: Node = Panels.main_node(game)
 	if main==null or not main.is_inside_tree(): _finish({"ok":false,"code":"ui.game_viewport_unavailable"}); return
 	var viewport: Viewport = main.get_viewport()

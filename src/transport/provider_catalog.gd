@@ -123,6 +123,8 @@ static func parse_metadata(bytes: PackedByteArray, model: String, base: String) 
 			var amount: int = _integer(nested.get("context_size"))
 			if amount > 0: tokens = amount if tokens == 0 else mini(tokens,amount)
 	var caps: Dictionary = {}
+	var image_input: Variant = _image_input(selected)
+	if image_input is bool: caps["image_input"]=image_input
 	var endpoints: Variant = selected.get("supported_endpoints")
 	if endpoints is Array and endpoints.all(func(item: Variant): return item is String):
 		if "/messages" in endpoints and "/chat/completions" not in endpoints: caps["protocol"] = "messages"
@@ -130,6 +132,17 @@ static func parse_metadata(bytes: PackedByteArray, model: String, base: String) 
 	if parameters is Array and parameters.all(func(item: Variant): return item is String):
 		caps["json_mode"] = "response_format" in parameters
 	return {"context":{"context_tokens":tokens,"api_base":Limits.api_base(base)} if tokens > 0 else {},"capabilities":caps}
+
+static func _image_input(selected: Dictionary) -> Variant:
+	# Input declarations only. Output image generation and names prove nothing.
+	var declarations: Array=[]
+	for row: Dictionary in [selected,selected.get("architecture",{}) if selected.get("architecture") is Dictionary else {},selected.get("capabilities",{}) if selected.get("capabilities") is Dictionary else {}]:
+		var modalities: Variant=row.get("input_modalities")
+		if modalities is Array and not modalities.is_empty() and modalities.all(func(v: Variant):return v is String):declarations.append("image" in modalities)
+		for field: String in ["image_input","vision","supports_vision"]:
+			if row.get(field) is bool:declarations.append(row[field])
+	if declarations.is_empty() or (true in declarations and false in declarations):return null
+	return declarations[0]
 
 static func parse_entry(bytes: PackedByteArray, model: String, base: String) -> Dictionary:
 	return parse_metadata(bytes,model,base).get("context",{})

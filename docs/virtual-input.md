@@ -2,7 +2,7 @@
 
 Если объявленный API и наблюдаемые элементы не позволяют выполнить задачу, агент с поддержкой изображений может воспользоваться видимым курсором внутри игрового viewport. Поддерживаются наведение, клик, двойной клик, перетаскивание, прокрутка, ввод Unicode и ограниченные клавиши редактирования/навигации. Это общий механизм для интерфейсов игры и модов; готовой логики конкретного мода в нём нет.
 
-Модель должна поддерживать изображения. Для точного API и модели включите профиль и «Изображения на вход» в штатной тонкой настройке. Доступ к `ui.pointer` и `ui.keyboard` управляется галочками в **Настройки → Харнес → Инструменты агента → Интерфейс игры**. Без разрешения инструментов нет в схеме запроса. Перед первым действием модель получает настоящий `ui.screenshot`; неудачная отправка изображения и текстовый запасной ответ не разрешают клики.
+Модель должна поддерживать изображения. Поддержка определяется автоматически для выбранного API и модели; доступны ручные «Включено» и «Выключено». [Как работает «Авто»](vision-auto.md). Доступ к `ui.pointer` и `ui.keyboard` управляется галочками в **Настройки → Харнес → Инструменты агента → Интерфейс игры**. Без разрешения инструментов нет в схеме запроса. Перед первым действием модель получает настоящий `ui.screenshot`; неудачная отправка изображения и текстовый запасной ответ не разрешают клики.
 
 Сначала используется доступный API или наблюдаемый элемент. Для виртуального ввода агент получает снимок с временным ID, указывает координаты в пикселях этого изображения и выполняет одно действие. Масштабирование снимка в координаты viewport рассчитывается кодом. После действия автоматически прикладывается новый кадр. Старый ID повторно использовать нельзя; смена мира, модели, окна, размеров, управление игрока или другое изменяющее действие отменяют прежние координаты.
 
@@ -14,7 +14,7 @@
 
 A vision model can use a visible in-game cursor when a declared API and observed controls cannot perform the task. Hover, clicks, double clicks, dragging, scrolling, Unicode text and bounded editing/navigation keys are supported. This is shared infrastructure for game and mod interfaces, with no mod-specific behavior.
 
-Enable the profile and image input for the exact API/model in the game's advanced AI settings. Tool checkboxes are under **Settings → Harness → Agent tools → Game interface**. Without permission, virtual input schemas are omitted. A successful provider response to the actual game image is required before input; rejected images and text-only fallback cannot authorize clicks.
+Image support is detected automatically per API/model; Enabled and Disabled overrides are available in Advanced settings. [How Auto works](vision-auto.md). Tool checkboxes are under **Settings → Harness → Agent tools → Game interface**. Without permission, virtual input schemas are omitted. A successful provider response to the actual game image is required before input; rejected images and text-only fallback cannot authorize clicks.
 
 The agent first uses available APIs/observed controls. Otherwise, it receives a temporary screenshot ID and chooses one action using that image's pixel coordinates. Code maps those coordinates to the viewport. Each action automatically attaches a new rendered frame. Old frames cannot be replayed. World/model/viewport/size changes, player input and other modifying actions invalidate prior coordinates.
 

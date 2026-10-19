@@ -48,6 +48,7 @@ func start(provider: Node, destination: HTTPRequest, query: Array, channel: Stri
 		"direct":direct,"serial":_serial,"native_http":null,"cache_key":cache_key,"capabilities":learned,"capability_repairs":0,
 		"protected_fields":tuned.get("protected_fields",[]).duplicate(),"manual_rejection":[],"max_wire_bytes":8388608,
 		"attempt":0,"retry_at":0,"retry_after":"","last_activity":Time.get_ticks_msec(),"started":Time.get_ticks_msec(),"timeout":maxf(1 if timeout_override > 0 else 30,destination.timeout)*1000,"last_emit":0,"shown":""}
+	if owner_mod.has_method("vision_context"):active[channel]["vision_identity"]=owner_mod.vision_context(provider)
 	_set_query(active[channel],prepared)
 	var record: Dictionary = active[channel]
 	if owner_mod._router.has_method("note_transport_query"):record["usage_request_id"]=owner_mod._router.note_transport_query(channel,provider,prepared)
@@ -316,6 +317,10 @@ func _fail(channel: String, reason: String, allow_retry: bool = true) -> void:
 	_deliver(channel,502,JSON.stringify({"error":{"message":reason}}).to_utf8_buffer())
 
 func _report_error(channel: String, failure: Dictionary) -> void:
+	if "vision_support" in owner_mod and is_instance_valid(owner_mod.vision_support):
+		var r: Dictionary=active.get(channel,{})
+		var usage: Dictionary=r.parser.usage if r.get("sse",false) else {}
+		owner_mod.vision_support.transport_failure(channel,str(failure.code),usage)
 	if active.has(channel):
 		failure.details = {"retries":active[channel].attempt,"capability_repairs":active[channel].get("capability_repairs",0),"elapsed_ms":Time.get_ticks_msec()-int(active[channel].started)}
 		if not active[channel].get("manual_rejection",[]).is_empty():
@@ -344,6 +349,7 @@ func _deliver(channel: String, code: int, bytes: PackedByteArray) -> void:
 	var r: Dictionary = active[channel]
 	if code >= 200 and code < 300 and owner_mod._router.has_method("normalize_response"): bytes = owner_mod._router.normalize_response(channel,bytes)
 	if owner_mod._router.has_method("record_transport_usage"):owner_mod._router.record_transport_usage(str(r.get("usage_request_id","")),code,bytes)
+	if "vision_support" in owner_mod and is_instance_valid(owner_mod.vision_support):owner_mod.vision_support.response(channel,code,bytes,r.get("vision_identity",{}) if r.get("image_request",false) else {})
 	_close(channel)
 	completed_requests += 1
 	if is_instance_valid(r.provider) and is_instance_valid(r.destination): r.provider.call_deferred("_curl_answer",r.destination,code,bytes)

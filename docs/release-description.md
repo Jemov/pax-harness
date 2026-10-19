@@ -6,6 +6,7 @@
 
 ## Возможности
 
+- Поддержка изображений определяется автоматически: сведения API или короткая проверка картинки при первом использовании; результат сохраняется для API и модели. Ручные «Включено» и «Выключено» доступны в тонкой настройке.
 - Несколько чатов, поиск, разделы, закрепление, переименование и ссылки на другие чаты через `@`.
 - Потоковые ответы, компактная очередь сообщений, уточнения во время работы, редактирование и отмена очереди.
 - Фактические токены и кэш из ответов API, время модели и инструментов, скорость ответа и использование контекста. Статистика сохраняется с чатом; разбивка контекста по частям приблизительная.
@@ -40,7 +41,7 @@
 
 Новые сущности и программы появляются в партии после нажатия игроком **«Применить»**. Обычные воксельные модели работают без дополнительных компонентов; отдельно висящие разрушаемые объекты требуют **Voxel Tools**. Качество выполнения зависит от выбранной модели. Чтение данных и управление некоторыми функциями модов.
 
-Для Pax Universe 0.31.5–0.31.6.
+Для Pax Universe 0.31.6–0.31.6.
 
 ## English
 
@@ -50,6 +51,7 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 
 ### Features
 
+- Automatic image support detection: API metadata or a short image check on first use, cached per API/model. Advanced settings offer Enabled and Disabled overrides.
 - Multiple chats, search, sections, pinning, renaming and `@` chat references.
 - Streaming responses, a compact message queue, corrections while working, editing and cancelling queued messages.
 - Actual API token/cache usage, model/tool timings, response speed and context usage. Statistics persist with the chat; context component proportions are approximate.
@@ -84,4 +86,4 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 
 New entities and programs enter the campaign after the player clicks **Apply**. Ordinary voxel models need no extra component; detached destructible volumes require **Voxel Tools**. Results depend on the selected model. Read data and control some mod features.
 
-For Pax Universe 0.31.5–0.31.6.
+For Pax Universe 0.31.6–0.31.6.

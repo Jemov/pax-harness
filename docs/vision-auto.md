@@ -1,0 +1,7 @@
+# Изображения: автоматическое определение
+
+По умолчанию работает «Автоматически»: Harness проверяет сведения API о выбранной модели. Если сведений нет, при первом изображении или снимке выполняется короткая проверка со случайными цифрами на картинке. Это дополнительный запрос к выбранной модели; его токены входят в статистику чата. Подтверждённая поддержка сохраняется на 24 часа, явный отказ API — на час, отдельно для API и модели. В тонкой настройке можно принудительно выбрать «Включено» или «Выключено»; включать профиль генерации для «Авто» не нужно. При неизвестной или отсутствующей поддержке текст остаётся доступен, модель получает уведомление о недоступных пикселях. Проверка не переключает модель и не управляет миром.
+
+## English
+
+Auto is the default: Harness checks the selected model’s API metadata. If metadata is missing, the first image or screenshot triggers a short check using random digits shown only in an image. This is an additional request to the selected model; its tokens are included in chat statistics. Confirmed support is cached for 24 hours and explicit API rejection for one hour, per API and model. Advanced settings can force Enabled or Disabled; Auto does not require enabling the generation profile. Text remains available when image support is unknown or unavailable, and the model is told that it cannot see the pixels. Detection never switches models or changes the world.

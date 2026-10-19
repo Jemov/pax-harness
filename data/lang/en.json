@@ -793,5 +793,10 @@
   "pax_harness_0b33526da344": "AI is using the game screen",
   "pax_harness_d50e5347a343": "Return to chat",
   "pax_harness_0ee6de06431c": "Pause screen interaction and open chat",
-  "pax_harness_51ed7ca2b915": "Screen interaction is paused. Send a new message to continue."
+  "pax_harness_51ed7ca2b915": "Screen interaction is paused. Send a new message to continue.",
+  "pax_harness_e3a6a440e43c": "Image support is unconfirmed or disabled. Your text was sent without the image; the model was informed about the attachment.",
+  "pax_harness_d29a65d6af41": "Image input is disabled for this model. Choose Auto or Enabled in Advanced settings.",
+  "pax_harness_e65e672a3c88": "The selected model does not support images. Text chat remains available.",
+  "pax_harness_28bf6430d491": "Image support could not be confirmed. Text chat is available; you can retry the check later.",
+  "pax_harness_230ec1d8380f": "Checking image support…"
 }

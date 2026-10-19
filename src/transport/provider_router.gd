@@ -347,6 +347,7 @@ func _image_record(channel: String) -> Dictionary:
 	return {}
 
 func validate_images(provider: Node, channel: String, required: bool = false) -> Dictionary:
+	if "vision_support" in _owner and is_instance_valid(_owner.vision_support) and _owner.vision_support.is_probe_channel(channel): return _owner.vision_support.validate(provider,channel)
 	var record: Dictionary = _image_record(channel)
 	if required and record.is_empty(): return {"ok":false,"code":"vision_request_expired","errors":["vision_request_expired"]}
 	if record.get("request_attachments",[]).is_empty(): return {"ok":true}
@@ -359,6 +360,7 @@ func validate_images(provider: Node, channel: String, required: bool = false) ->
 	return {"ok":true}
 
 func prepare_images(provider: Node, query: Array, channel: String) -> Dictionary:
+	if "vision_support" in _owner and is_instance_valid(_owner.vision_support) and _owner.vision_support.is_probe_channel(channel): return _owner.vision_support.prepare(provider,query,channel)
 	var record: Dictionary = _image_record(channel)
 	if record.is_empty() and _image_channels.has(channel): return {"ok":false,"code":"vision_request_expired","errors":["vision_request_expired"]}
 	if record.get("request_attachments",[]).is_empty(): return {"ok":true,"query":query}
@@ -616,6 +618,7 @@ func record_usage(event: Dictionary) -> void:
 		return
 
 func stream_owned(channel: String) -> bool:
+	if "vision_support" in _owner and is_instance_valid(_owner.vision_support) and _owner.vision_support.is_probe_channel(channel): return true
 	if channel == "mod_pax_harness_chat_compact" and _owner.chat_compactor != null and _owner.chat_compactor.busy(): return true
 	for record: Dictionary in _transport.values():
 		if record.get("channel") != channel or not current(str(record.task)): continue

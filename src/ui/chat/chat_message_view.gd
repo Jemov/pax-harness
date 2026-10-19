@@ -52,11 +52,12 @@ func update_message(ui: Node, message: Dictionary) -> void:
 	for reference: Dictionary in message.get("references",[]):
 		var target: Dictionary = ui.store.find(str(reference.id))
 		references.append([reference,target.get("title",reference.get("title",L.text("Удалённый чат"))),target.is_empty()])
-	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status"),message.get("images",[]),message.get("image_notice","")]
+	var header: Array = [role,message.get("date",""),ui.agent_name.display_name,references,message.get("origin",{}),message.get("status"),message.get("images",[]),message.get("image_notice",""),message.get("audio",[]),message.get("audio_route",""),L.language()]
 	if _header_state != header:
 		_header_state = header.duplicate(true); ui._clear(_header)
 		_header.add_child(ui._label((L.text("Вы") if role == "user" else "✦  "+ui.agent_name.display_name)+"   ·   "+str(message.get("date","")),13,ui.QUIET if role == "user" else ui.ACCENT))
 		if role=="user": preload("res://mods/pax_harness/src/ui/chat/chat_image_attachments.gd").message_preview(ui,_header,message.get("images",[]),str(message.get("image_notice","")))
+		if role=="user":preload("res://mods/pax_harness/src/ui/chat/chat_voice.gd").message_preview(ui,_header,message.get("audio",[]),str(message.get("audio_route","")))
 		for reference: Array in references:
 			var link: Button = ui._button("@ "+str(reference[1]),ui.owner_mod.chat_select.bind(str(reference[0].id)))
 			link.set_meta("mod_user_text",true); link.disabled = reference[2]; link.alignment = HORIZONTAL_ALIGNMENT_LEFT

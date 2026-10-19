@@ -36,6 +36,7 @@ var input: TextEdit
 var send_button: Button
 var stop_button: Button
 var mic_button: Button
+var voice: Node
 var status: Label
 var delete_dialog: ConfirmationDialog
 var _delete_id: String = ""
@@ -294,6 +295,7 @@ func open() -> void:
 	window_manager.show_workspace()
 
 func close() -> void:
+	if is_instance_valid(voice):voice.cancel()
 	var image_dialog: Node = get_node_or_null("ImageGenerationDialog")
 	if image_dialog != null: image_dialog.hide(); image_dialog.queue_free()
 	scroll_motion.cancel()
@@ -348,17 +350,18 @@ func _input_key(event: InputEvent) -> void:
 		input.accept_event(); _send(alternate)
 
 func _send(alternate: bool = false) -> void:
+	if is_instance_valid(voice) and voice.recording():voice.recorder.stop();return
 	var text: String = input.text.strip_edges()
-	if text.is_empty() and (image_attachments==null or image_attachments.images().is_empty()): return
+	if text.is_empty() and (image_attachments==null or image_attachments.images().is_empty()) and (voice==null or voice.audio().is_empty()): return
 	var accepted := false
 	if owner_mod.chat_busy():
 		var mode: String = str(Preferences.value(owner_mod,"busy_send"))
 		if alternate: mode = "interrupt" if mode == "queue" else "queue"
 		if mode == "wait" or not owner_mod.has_method("chat_enqueue"): return
-		accepted = owner_mod.chat_enqueue(text,mentions.references(),image_attachments.images())
+		accepted = owner_mod.chat_enqueue(text,mentions.references(),image_attachments.images(),voice.audio())
 		if accepted and mode == "interrupt": owner_mod.chat_stop()
 	else:
-		accepted = owner_mod.chat_send_with_refs(text,mentions.references(),image_attachments.images()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
+		accepted = owner_mod.chat_send_with_refs(text,mentions.references(),image_attachments.images(),voice.audio()) if owner_mod.has_method("chat_send_with_refs") else owner_mod.chat_send(text)
 	if accepted:
 		input.text = ""; mentions.sync(); _update_status()
 
@@ -641,7 +644,7 @@ func _process(delta: float) -> void:
 		_update_status()
 
 func _update_send_state() -> void:
-	send_button.disabled = (owner_mod.chat_busy() and (Preferences.value(owner_mod,"busy_send") == "wait" or not owner_mod.has_method("chat_enqueue"))) or store.current().is_empty() or (input.text.strip_edges().is_empty() and (image_attachments==null or image_attachments.images().is_empty()))
+	send_button.disabled = (owner_mod.chat_busy() and (Preferences.value(owner_mod,"busy_send") == "wait" or not owner_mod.has_method("chat_enqueue"))) or store.current().is_empty() or (input.text.strip_edges().is_empty() and (image_attachments==null or image_attachments.images().is_empty()) and (voice==null or voice.audio().is_empty()))
 
 func _update_status() -> void:
 	var busy: bool = owner_mod.chat_busy()
@@ -651,9 +654,6 @@ func _update_status() -> void:
 	stop_button.visible = busy
 	status.text = agent_name.display_name+L.text(" работает…") if busy else ""
 	status.visible = busy
-	if native.mic_button != null:
-		mic_button.icon = Icons.make("stop" if native.mic_button.button_pressed else "mic",Color("#d5979e") if native.mic_button.button_pressed else QUIET)
-		mic_button.disabled = native.mic_button.disabled or busy
 	_update_statistics()
 
 func _update_statistics() -> void:

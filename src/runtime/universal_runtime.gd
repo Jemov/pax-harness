@@ -6,6 +6,7 @@ const Failure = preload("res://mods/pax_harness/src/core/runtime_error.gd")
 const ReceiptView = preload("res://mods/pax_harness/src/runtime/tool_projection.gd")
 const ChartResponse = preload("res://mods/pax_harness/src/visualization/chart_response.gd")
 const ExecutorPrompt = preload("res://mods/pax_harness/src/runtime/executor_prompt.gd")
+const Audio=preload("res://mods/pax_harness/src/audio/audio_payload.gd")
 const Vision = preload("res://mods/pax_harness/src/transport/vision_payload.gd")
 const ImageArtifact = preload("res://mods/pax_harness/src/images/image_artifact.gd")
 const Groups = preload("res://mods/pax_harness/src/runtime/tools/tool_groups.gd")
@@ -163,6 +164,9 @@ func _step(token: String) -> void:
 		if not s.pending_images.any(func(item: Dictionary): return item.id==image.id) and s.pending_images.size()<Vision.MAX_IMAGES: s.pending_images.append(image)
 	packet["tool_schema_chars"] = JSON.stringify(tools).length()
 	packet["image_token_reserve"] = Vision.token_reserve(s.pending_images)
+	packet["audio_token_reserve"]=0
+	if s.round==1 and not s.get("audio_fallback",false):
+		for clip: Dictionary in s.source.get("user_audio",[]):packet.audio_token_reserve+=ceili(float(clip.get("seconds",0))*100)+512
 	_prepare_packet(token,packet,false)
 
 func _prepare_packet(token: String, packet: Dictionary, force: bool) -> void:
@@ -184,7 +188,7 @@ func _prepared(result: Dictionary, token: String, step: int) -> void:
 	var context_limit: Callable = s.scope.get("context_limit",Callable())
 	if context_limit.is_valid():
 		var window: int = int(context_limit.call())
-		var input_estimate: int = ceili((str(result.packet.get("system","")).length()+JSON.stringify(result.packet.get("data",{})).length())/2.0)+int(result.packet.get("image_token_reserve",0))
+		var input_estimate: int = ceili((str(result.packet.get("system","")).length()+JSON.stringify(result.packet.get("data",{})).length())/2.0)+int(result.packet.get("image_token_reserve",0))+int(result.packet.get("audio_token_reserve",0))
 		var output_reserve: int = maxi(0,int(result.packet.get("options",{}).get("max_tokens",2400)))
 		if input_estimate+output_reserve+1024 > window:
 			var details: Dictionary = {"estimated_input_tokens":input_estimate,"output_reserve":output_reserve,"framing_reserve":1024,"context_limit":window,"request_sent":false,"silent_truncation":false}
@@ -197,6 +201,7 @@ func _prepared(result: Dictionary, token: String, step: int) -> void:
 			_end(token,false,"vision_not_available_in_analysis_child")
 			return
 		result.packet["request_attachments"] = s.pending_images.duplicate(true)
+	if s.round==1 and not s.get("audio_fallback",false) and not s.source.get("user_audio",[]).is_empty() and not s.scope.get("analysis_child",false):result.packet["request_audio"]=s.source.user_audio.duplicate(true)
 	s["last_packet"] = result.packet.duplicate(true)
 	s.pending_images.clear()
 	var accepted: Variant = s.send.call(result.packet,_answer.bind(token,s.pending))
@@ -220,6 +225,11 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 		if retry.data.has("image_references"): retry.data.image_references.available_to_model=false
 		_notify(s,"image.fallback",{"reason":"model_rejected_images","text_preserved":true})
 		s.pending+=1; _prepare_packet(token,retry,false); return
+	if not s.last_packet.get("request_audio",[]).is_empty() and not s.get("audio_fallback",false) and Audio.unsupported(response):
+		s["audio_fallback"]=true;s.source["user_audio"]=[]
+		var retry: Dictionary=s.last_packet.duplicate(true);retry.erase("request_audio");retry["audio_token_reserve"]=0
+		retry.data["audio_notice"]="The API rejected native audio. The exact decoded speech is retained in source_user. Continue using that text; do not claim to hear this rejected audio."
+		_notify(s,"audio.fallback",{"text_preserved":true});s.pending+=1;_prepare_packet(token,retry,false);return
 	var error_text: String = JSON.stringify(response).to_lower()
 	if ("context_length_exceeded" in error_text or "maximum context length" in error_text or "context window exceeded" in error_text) and not s.get("overflow_retried",false) and s.scope.get("compact_packet",Callable()).is_valid():
 		s["overflow_retried"] = true

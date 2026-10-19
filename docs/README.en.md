@@ -1,16 +1,18 @@
 # Pax Harness
 
-**Image references:** copy a picture and paste it into the composer with **Ctrl+V** or the paperclip button. Generated images also have a **Use as reference** button. Attach up to two images alongside your text. Enable **Image input** in the selected model's advanced settings when the model supports it. With image input disabled, Harness warns you and sends your text with a notice that the pixels are unavailable. An explicit API rejection of image input triggers one text-only retry, preserving your original message.
+**Image references:** copy a picture and paste it into the composer with **Ctrl+V** or the paperclip button. Generated images also have a **Use as reference** button. Attach up to two images alongside your text. Image support is detected automatically per API and model; advanced settings offer Enabled and Disabled overrides. With image input disabled, Harness warns you and sends your text with a notice that the pixels are unavailable. An explicit API rejection of image input triggers one text-only retry, preserving your original message.
 
 **Artificial worlds and production:** the assistant can author a separate native body with its own model, orbit and 4–40 territories. Normal passenger transports can settle it. Its program can read actual native population and control climate parameters. With Dyson Sphere Program enabled, general operations also read real colony stocks, consume resources and spawn native ships. The agent writes the shipyard queue, costs, timing and controls. Creating a body does not grant settlers or supplies.
 
-An in-game assistant workspace for **Pax Universe 0.31.5**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
+An in-game assistant workspace for **Pax Universe 0.31.6**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
 
 Queued messages use a compact row with an attachment thumbnail. The right-hand actions send a correction now or remove it from the queue. The **…** menu offers editing, moving to a new chat and queue preferences. Click the row to read the full text. Editing holds dispatch; moving to a new chat preserves text and pictures as a draft.
 
 ![Compact queued message and action menu](../media/queue-menu-en.webp)
 
 [Русское описание](../README.md)
+
+**Voice:** click the microphone, speak, and click it again to stop. Preview, remove or send the recording with optional text. Clips are limited to 30 seconds. Models with usable audio input receive WAV directly; otherwise Harness uses the recognizer from **Settings → Voice** and sends text. The message shows which route was used. [Details](voice-input.md#english).
 
 ## Tools on demand
 

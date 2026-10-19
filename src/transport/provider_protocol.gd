@@ -45,6 +45,9 @@ static func _chat_content(content: Variant, allow_images: bool) -> bool:
 	for block: Variant in content:
 		if not block is Dictionary: return false
 		if block.size() == 2 and block.get("type") == "text" and block.get("text") is String: continue
+		if block.size()==2 and block.get("type")=="input_audio" and block.get("input_audio") is Dictionary:
+			var audio: Dictionary=block.input_audio
+			if audio.size()==2 and audio.get("format")=="wav" and audio.get("data") is String and audio.data.length()<=2800000 and RegEx.create_from_string("^[A-Za-z0-9+/]+={0,2}$").search(audio.data)!=null:continue
 		if _image_source(block).is_empty(): return false
 	return true
 
@@ -92,6 +95,8 @@ static func _options(output: Dictionary, capabilities: Dictionary, auto_json: bo
 	elif capabilities.get("stream_options",true) == false: output.erase("stream_options")
 
 static func _messages(query: Array, base: String, capabilities: Dictionary) -> Array:
+	# Messages has no standard input_audio block; never discard or reinterpret it.
+	if preload("res://mods/pax_harness/src/audio/audio_payload.gd").contains_audio(query):return query
 	var source: Dictionary = query[2]
 	for key: Variant in source:
 		if key not in ["model","messages","max_tokens","max_completion_tokens","temperature","top_p","reasoning_effort","stream","stream_options","stop","response_format"]: return query

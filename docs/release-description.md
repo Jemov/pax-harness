@@ -7,6 +7,7 @@
 ## Возможности
 
 - Поддержка изображений определяется автоматически: сведения API или короткая проверка картинки при первом использовании; результат сохраняется для API и модели. Ручные «Включено» и «Выключено» доступны в тонкой настройке.
+- Голосовой ввод: запись до 30 секунд, прослушивание и удаление перед отправкой. WAV напрямую в поддерживающую аудио модель/API; иначе распознавание через настройки голоса игры и отправка текстом. Запись сохраняется в чате; способ обработки виден под сообщением.
 - Несколько чатов, поиск, разделы, закрепление, переименование и ссылки на другие чаты через `@`.
 - Потоковые ответы, компактная очередь сообщений, уточнения во время работы, редактирование и отмена очереди.
 - Фактические токены и кэш из ответов API, время модели и инструментов, скорость ответа и использование контекста. Статистика сохраняется с чатом; разбивка контекста по частям приблизительная.
@@ -52,6 +53,7 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 ### Features
 
 - Automatic image support detection: API metadata or a short image check on first use, cached per API/model. Advanced settings offer Enabled and Disabled overrides.
+- Voice input: record up to 30 seconds, preview or remove before sending. WAV goes directly to an audio-capable model/API; otherwise use the game-configured speech recognizer and send text. Recordings persist in chat; each message shows the processing route.
 - Multiple chats, search, sections, pinning, renaming and `@` chat references.
 - Streaming responses, a compact message queue, corrections while working, editing and cancelling queued messages.
 - Actual API token/cache usage, model/tool timings, response speed and context usage. Statistics persist with the chat; context component proportions are approximate.

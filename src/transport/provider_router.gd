@@ -314,6 +314,8 @@ func send(packet: Dictionary, done: Callable, task_id: String) -> Dictionary:
 	var callback: Callable = _transport_answer.bind(key,channel)
 	_transport[key] = {"provider":p,"callback":callback,"done":done,"task":task_id,"slot":slot,"channel":channel,"analysis_child":bool(packet.get("analysis_child",false)),"analysis_job_id":packet.get("analysis_job_id",0),"output_budget":int(packet.get("options",{}).get("max_tokens",2400))}
 	_transport[key]["request_attachments"] = attachments.duplicate(true)
+	_transport[key]["request_audio"]=packet.get("request_audio",[]).duplicate(true)
+	if not _transport[key].request_audio.is_empty():_transport[key]["audio_identity"]=_owner.vision_context(p)
 	# Remember only the bounded slot marker if cancellation retires a transport
 	# while its native builder is still queued. It must fail, never send text-only.
 	if attachments.is_empty(): _image_channels.erase(channel)
@@ -618,6 +620,7 @@ func record_usage(event: Dictionary) -> void:
 		return
 
 func stream_owned(channel: String) -> bool:
+	if "audio_service" in _owner and is_instance_valid(_owner.audio_service) and _owner.audio_service.is_channel(channel):return true
 	if "vision_support" in _owner and is_instance_valid(_owner.vision_support) and _owner.vision_support.is_probe_channel(channel): return true
 	if channel == "mod_pax_harness_chat_compact" and _owner.chat_compactor != null and _owner.chat_compactor.busy(): return true
 	for record: Dictionary in _transport.values():

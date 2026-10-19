@@ -116,7 +116,7 @@ static func composer(ui: Node, body: VBoxContainer) -> void:
 	fields.add_child(actions)
 	var space := Control.new(); space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(space)
-	ui.mic_button = icon_button(ui,"mic",func(): ui.native.mic_toggled.emit(),L.text("Голосовой ввод"),28)
+	ui.mic_button = icon_button(ui,"mic",func(): ui.voice.toggle(),L.text("Голосовой ввод"),28)
 	ui.mic_button.name = "ChatMicrophone"
 	for state: String in ["normal","hover","pressed","focus","disabled"]:
 		var mic_style: StyleBoxFlat = Style.box(Color("#292c32") if state == "hover" else Color.TRANSPARENT,6,Color.TRANSPARENT,0)
@@ -137,6 +137,7 @@ static func composer(ui: Node, body: VBoxContainer) -> void:
 		ui.send_button.add_theme_stylebox_override(state,style)
 	actions.add_child(ui.send_button)
 	ui.image_attachments=preload("res://mods/pax_harness/src/ui/chat/chat_image_attachments.gd").new(); ui.add_child(ui.image_attachments); ui.image_attachments.setup(ui,fields,actions)
+	ui.voice=preload("res://mods/pax_harness/src/ui/chat/chat_voice.gd").new();ui.add_child(ui.voice);ui.voice.setup(ui,fields)
 	var statistics := HBoxContainer.new()
 	statistics.name = "SessionStatistics"
 	statistics.alignment = BoxContainer.ALIGNMENT_CENTER

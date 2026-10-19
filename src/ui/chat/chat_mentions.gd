@@ -24,7 +24,9 @@ func setup(value: Node, composer: VBoxContainer) -> void:
 	chips.name = "AttachedChats"
 	chips.add_theme_constant_override("separation",5)
 	composer.add_child(chips)
-	composer.move_child(chips,editor.get_index())
+	var anchor: Node=editor
+	while anchor.get_parent()!=composer and anchor.get_parent()!=null:anchor=anchor.get_parent()
+	if anchor.get_parent()==composer:composer.move_child(chips,anchor.get_index())
 	chips.hide()
 	picker = PanelContainer.new()
 	picker.name = "ChatMentionPicker"

@@ -4,6 +4,7 @@ const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 const Parser = preload("res://mods/pax_harness/src/transport/chat_stream_parser.gd")
 const Failure = preload("res://mods/pax_harness/src/core/runtime_error.gd")
 const Protocol = preload("res://mods/pax_harness/src/transport/provider_protocol.gd")
+const Audio=preload("res://mods/pax_harness/src/audio/audio_payload.gd")
 const Vision = preload("res://mods/pax_harness/src/transport/vision_payload.gd")
 const MAX_RETRIES := 3
 const MAX_CAPABILITY_REPAIRS := 4
@@ -92,8 +93,12 @@ func _set_query(r: Dictionary, query: Array) -> void:
 	r.body = JSON.stringify(request)
 	r.messages_protocol = messages_protocol
 	r.image_request = Vision.contains_images(r.query)
+	r.audio_request=Audio.contains_audio(r.query)
 
 func _vision_gate(channel: String, r: Dictionary) -> bool:
+	if r.get("audio_request",false):
+		var audio: Dictionary=owner_mod.audio_service.validate(r.provider,channel)
+		if not audio.get("ok",false):_fail(channel,str(audio.get("code","audio.request_expired")),false);return false
 	if not r.get("image_request",false): return true
 	var checked: Dictionary = owner_mod._router.validate_images(r.provider,channel,true) if owner_mod._router.has_method("validate_images") else {"ok":false,"code":"vision_image_resolver_unavailable"}
 	if checked.get("ok",false): return true
@@ -350,6 +355,7 @@ func _deliver(channel: String, code: int, bytes: PackedByteArray) -> void:
 	if code >= 200 and code < 300 and owner_mod._router.has_method("normalize_response"): bytes = owner_mod._router.normalize_response(channel,bytes)
 	if owner_mod._router.has_method("record_transport_usage"):owner_mod._router.record_transport_usage(str(r.get("usage_request_id","")),code,bytes)
 	if "vision_support" in owner_mod and is_instance_valid(owner_mod.vision_support):owner_mod.vision_support.response(channel,code,bytes,r.get("vision_identity",{}) if r.get("image_request",false) else {})
+	if "audio_service" in owner_mod and is_instance_valid(owner_mod.audio_service):owner_mod.audio_service.response(channel,code,bytes)
 	_close(channel)
 	completed_requests += 1
 	if is_instance_valid(r.provider) and is_instance_valid(r.destination): r.provider.call_deferred("_curl_answer",r.destination,code,bytes)

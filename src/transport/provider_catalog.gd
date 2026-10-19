@@ -123,6 +123,8 @@ static func parse_metadata(bytes: PackedByteArray, model: String, base: String) 
 			var amount: int = _integer(nested.get("context_size"))
 			if amount > 0: tokens = amount if tokens == 0 else mini(tokens,amount)
 	var caps: Dictionary = {}
+	var audio_input: Variant=_input_modality(selected,"audio")
+	if audio_input is bool:caps["audio_input"]=audio_input
 	var image_input: Variant = _image_input(selected)
 	if image_input is bool: caps["image_input"]=image_input
 	var endpoints: Variant = selected.get("supported_endpoints")
@@ -132,6 +134,15 @@ static func parse_metadata(bytes: PackedByteArray, model: String, base: String) 
 	if parameters is Array and parameters.all(func(item: Variant): return item is String):
 		caps["json_mode"] = "response_format" in parameters
 	return {"context":{"context_tokens":tokens,"api_base":Limits.api_base(base)} if tokens > 0 else {},"capabilities":caps}
+
+static func _input_modality(selected: Dictionary, modality: String) -> Variant:
+	var declarations: Array=[]
+	for row: Dictionary in [selected,selected.get("architecture",{}) if selected.get("architecture") is Dictionary else {},selected.get("capabilities",{}) if selected.get("capabilities") is Dictionary else {}]:
+		var values: Variant=row.get("input_modalities")
+		if values is Array and not values.is_empty() and values.all(func(v: Variant):return v is String):declarations.append(modality in values)
+		for field: String in [modality+"_input","supports_"+modality]:
+			if row.get(field) is bool:declarations.append(row[field])
+	return null if declarations.is_empty() or (true in declarations and false in declarations) else declarations[0]
 
 static func _image_input(selected: Dictionary) -> Variant:
 	# Input declarations only. Output image generation and names prove nothing.

@@ -15,6 +15,7 @@ var reference_images: RefCounted = preload("res://mods/pax_harness/src/images/re
 var provider_limits: RefCounted = ProviderLimits.new()
 var provider_catalog: Node
 var vision_support: Node
+var audio_service: Node
 var analytics_sources: RefCounted = preload("res://mods/pax_harness/src/data/analytics_extensions.gd").new()
 
 var map_sources: RefCounted = preload("res://mods/pax_harness/src/visualization/maps/chart_map_sources.gd").new()
@@ -110,6 +111,7 @@ func _mod_loaded() -> void:
 	provider_catalog.setup(self)
 	provider_catalog.completed.connect(_catalog_completed)
 	vision_support=load_resource("src/transport/vision_support.gd").new();add_child(vision_support);vision_support.setup(self)
+	audio_service=load_resource("src/audio/audio_service.gd").new();add_child(audio_service);audio_service.setup(self)
 	hook("ai_request",_observe_request)
 	hook("ai_request",_observe_usage_ready,-1000000)
 	hook("ai_answer",_observe_chat_usage)
@@ -170,6 +172,7 @@ func _reset() -> void:
 	if is_instance_valid(_virtual_input): _virtual_input.clear()
 	if is_instance_valid(_ui_capture): _ui_capture.clear()
 	if is_instance_valid(_image_generation): _image_generation.clear_jobs()
+	if is_instance_valid(audio_service): audio_service.cancel_all()
 	if is_instance_valid(vision_support): vision_support.cancel_all()
 	if is_instance_valid(chat_stream): chat_stream.cancel_all()
 	if is_instance_valid(provider_catalog): provider_catalog.cancel_all()
@@ -265,6 +268,9 @@ func ensure_vision(target: Dictionary = {}) -> Dictionary:
 	if provider==null or not is_instance_valid(vision_support):return {"ok":false,"code":"vision_check_unavailable"}
 	return await vision_support.ensure(provider,target)
 
+func _audio_intake_answer(response: Dictionary, channel: String) -> void:
+	if is_instance_valid(audio_service):audio_service.receive(response,channel)
+
 func _vision_probe_answer(response: Dictionary, channel: String) -> void:
 	if is_instance_valid(vision_support):vision_support.receive(response,channel)
 
@@ -310,6 +316,7 @@ func prepare_generation_query(provider: Node, query: Array, channel: String) -> 
 	var budget: int = _router.generation_budget(channel,0) if _router != null else 0
 	if channel == "mod_pax_harness_chat_compact": budget = generation_output_limit(8192,true)
 	if is_instance_valid(vision_support) and vision_support.is_probe_channel(channel): budget=vision_support.OUTPUT_BUDGET
+	if is_instance_valid(audio_service) and audio_service.is_channel(channel):budget=audio_service.OUTPUT_BUDGET
 	# Native ask_ai and provider builders may cap this at 64000 or 8000. Restore
 	# the actual allowance already reserved by the runtime before its fit gate.
 	if budget > 0 and prepared.size() == 3 and prepared[2] is Dictionary:
@@ -321,6 +328,10 @@ func prepare_generation_query(provider: Node, query: Array, channel: String) -> 
 	var images: Dictionary = _router.prepare_images(provider,tuned.query,channel)
 	if not images.get("ok",false): return images
 	tuned.query = images.query
+	if is_instance_valid(audio_service):
+		var audio: Dictionary=audio_service.apply_query(provider,tuned.query,channel)
+		if not audio.get("ok",false):return audio
+		tuned.query=audio.query
 	return tuned
 
 func prompt_tools_available() -> bool:
@@ -563,16 +574,18 @@ func chat_delete(chat_id: String) -> void:
 func chat_send(text: String) -> bool:
 	return chat_send_with_refs(text,[])
 
-func chat_send_with_refs(text: String, refs: Array, images: Array = []) -> bool:
+func chat_send_with_refs(text: String, refs: Array, images: Array = [], audio: Array = []) -> bool:
 	if text.strip_edges().get_slice(" ",0) == "/compact":
 		if not _game_available() or chat_busy(): return false
 		_current_provider()
 		var compacted: Dictionary = chat_compactor.manual(chat_store.selected,text.strip_edges().trim_prefix("/compact").strip_edges())
 		if not compacted.ok and is_instance_valid(chat_ui): chat_ui.status.text = L.text("Пока нечего сжимать.") if compacted.code == "nothing_to_compact" else L.text("Сжатие недоступно: ")+str(compacted.code)
 		return compacted.ok
-	return _chat_send_to(chat_store.selected if chat_store != null else "",text,refs,{},"",images)
+	return _chat_send_to(chat_store.selected if chat_store != null else "",text,refs,{},"",images,audio)
 
-func _chat_send_to(chat_id: String, text: String, refs: Array = [], origin: Dictionary = {}, existing_user: String = "", images: Array = []) -> bool:
+func _chat_send_to(chat_id: String, text: String, refs: Array = [], origin: Dictionary = {}, existing_user: String = "", images: Array = [], audio: Array = []) -> bool:
+	if audio.size()>1 or audio.any(func(clip: Variant):return not preload("res://mods/pax_harness/src/audio/audio_payload.gd").valid(clip)):return false
+	if text.strip_edges().is_empty() and not audio.is_empty():text=L.text("Голосовое сообщение")
 	if text.strip_edges().is_empty() and not images.is_empty(): text=L.text("Рассмотри прикреплённое изображение.")
 	if images.size()>2 or images.any(func(image: Variant): return not Vision.valid_reference(image) or image.get("source")!="user_reference"): return false
 	if not _game_available() or chat_store == null or chat_busy() or text.strip_edges().is_empty() or chat_store.find(chat_id).is_empty(): return false
@@ -581,7 +594,7 @@ func _chat_send_to(chat_id: String, text: String, refs: Array = [], origin: Dict
 	var provider: Node = _current_provider()
 	var main: Node = _game.main
 	main.player.assistant_history = chat_store.context(chat_id)
-	_chat_pending = chat_store.begin(text,_game.date_text(),chat_id,refs,origin,existing_user,images)
+	_chat_pending = chat_store.begin(text,_game.date_text(),chat_id,refs,origin,existing_user,images,audio)
 	if provider != null and provider.has_method("why_offline") and str(provider.why_offline()) == "off":
 		chat_store.finish(_chat_pending,L.text("ИИ отключён правилами сценария или модом. Для работы чата включите ИИ в настройках отключившего его мода."),false,"ai_disabled_by_world")
 		_chat_pending.clear()
@@ -607,6 +620,21 @@ func _chat_send_ready(text: String, target: Dictionary, generation: int) -> void
 	# false. Apply the completed metadata before the native initial request fits.
 	var ready_provider: Node = StockCompat.provider(_game)
 	provider_limits.sync(ready_provider,_provider_metadata(ready_provider))
+	if not target.get("audio",[]).is_empty():
+		var decoded: Dictionary=await audio_service.prepare(target)
+		if decoded.get("code")=="cancelled" or not _game_available() or generation!=_source_generation or _chat_pending!=target:return
+		if not decoded.get("ok",false):
+			var chat: Dictionary=chat_store.find(str(target.chat_id))
+			if chat.get("draft_audio",[]).is_empty():chat["draft_audio"]=target.audio.duplicate(true)
+			if str(chat.get("draft","")).is_empty() and text!=L.text("Голосовое сообщение"):chat.draft=text
+			chat_store.finish(target,L.text("Не удалось распознать голос. Запись сохранена. Проверьте Настройки → Голос и повторите отправку.")+("\n"+str(decoded.reason) if decoded.get("reason","")!="" else ""),false,str(decoded.get("code","audio.failed")))
+			if is_instance_valid(chat_ui) and chat_store.selected==target.chat_id:chat_ui.voice.show_error(decoded)
+			_chat_pending.clear();_chat_pump.call_deferred();return
+		text=(text+"\n\n" if text!=L.text("Голосовое сообщение") else "")+str(decoded.text)
+		target["audio_native"]=decoded.get("native",false);_chat_pending=target.duplicate(true)
+		for message: Dictionary in chat_store.find(str(target.chat_id)).messages:
+			if message.id==target.user_message_id:message.text=text;message["audio_route"]="native" if decoded.get("native",false) else "transcribed"
+		chat_store.changed.emit()
 	if not target.get("images",[]).is_empty():
 		var checked: Dictionary=await ensure_vision(target)
 		if not _game_available() or generation!=_source_generation or _chat_pending!=target:return
@@ -625,9 +653,9 @@ func _chat_send_ready(text: String, target: Dictionary, generation: int) -> void
 		_chat_poll_native()
 	main.player.assistant_history = chat_store.context()
 
-func chat_enqueue(text: String, refs: Array = [], images: Array = []) -> bool:
+func chat_enqueue(text: String, refs: Array = [], images: Array = [], audio: Array = []) -> bool:
 	if not _game_available() or chat_store == null: return false
-	var accepted: bool = chat_store.enqueue_user(text,_game.date_text(),refs,images)
+	var accepted: bool = chat_store.enqueue_user(text,_game.date_text(),refs,images,audio)
 	if accepted: _chat_pump.call_deferred()
 	return accepted
 
@@ -648,7 +676,7 @@ func chat_queued_to_draft(message_id: String) -> void:
 	if delivery.is_empty() or not chat_store.remove_queued(message_id): return
 	chat_new()
 	var chat: Dictionary=chat_store.current()
-	chat.draft=delivery.text; chat["draft_images"]=delivery.get("images",[]); chat["draft_refs"]=delivery.get("references",[]).map(func(r: Dictionary): return r.id)
+	chat.draft=delivery.text; chat["draft_images"]=delivery.get("images",[]); chat["draft_audio"]=delivery.get("audio",[]); chat["draft_refs"]=delivery.get("references",[]).map(func(r: Dictionary): return r.id)
 	chat_store.changed.emit()
 
 func _chat_pump() -> void:
@@ -659,7 +687,7 @@ func _chat_pump() -> void:
 			delivery.status = "interrupted"
 			continue
 		delivery.status = "running"
-		if _chat_send_to(str(delivery.target_id),str(delivery.text),delivery.get("references",[]),delivery.origin,str(delivery.user_message_id),delivery.get("images",[])):
+		if _chat_send_to(str(delivery.target_id),str(delivery.text),delivery.get("references",[]),delivery.origin,str(delivery.user_message_id),delivery.get("images",[]),delivery.get("audio",[])):
 			if delivery.status == "running" and not chat_busy():
 				var messages: Array = chat_store.find(str(delivery.target_id)).messages
 				delivery.status = "complete" if not messages.is_empty() and messages[-1].get("status") == "complete" else "interrupted"
@@ -675,6 +703,11 @@ func chat_tool(name: String, arguments: Dictionary, scope: Dictionary) -> Dictio
 	return chat_tools.execute(name,arguments,scope)
 
 func chat_stop() -> void:
+	if is_instance_valid(chat_ui) and is_instance_valid(chat_ui.voice):chat_ui.voice.cancel()
+	if not _chat_pending.get("audio",[]).is_empty() and chat_store!=null:
+		var draft: Dictionary=chat_store.find(str(_chat_pending.get("chat_id","")))
+		if not draft.is_empty() and draft.get("draft_audio",[]).is_empty():draft["draft_audio"]=_chat_pending.audio.duplicate(true)
+	if is_instance_valid(audio_service):audio_service.cancel_all()
 	if is_instance_valid(vision_support):vision_support.cancel_all()
 	if is_instance_valid(_screen_session): _screen_session.end()
 	invalidate_game_input_frames()
@@ -700,6 +733,7 @@ func _chat_capture(task: Dictionary) -> void:
 	task["chat_target"] = _chat_pending.duplicate() if not _chat_pending.is_empty() else chat_store.begin(str(_game.main.player._assistant_question),_game.date_text())
 	task.source["chat_references"] = task.chat_target.get("references",[]).duplicate(true)
 	task.source["chat_origin"] = task.chat_target.get("origin",{}).duplicate(true)
+	if task.chat_target.get("audio_native",false):task.source["user_audio"]=task.chat_target.get("audio",[]).duplicate(true)
 	var images: Array=task.chat_target.get("images",[])
 	if not images.is_empty():
 		var enabled: bool=vision_input_enabled(task.provider) and task.chat_target.get("image_vision_ready",true)
@@ -720,6 +754,10 @@ func _set_image_notice(target: Dictionary, notice: String) -> void:
 	chat_store.changed.emit()
 
 func _chat_event(kind: String, payload: Dictionary, task_id: String) -> void:
+	if kind=="audio.fallback" and _router._tasks.has(task_id) and chat_store!=null:
+		var target: Dictionary=_router._tasks[task_id].get("chat_target",{})
+		for message: Dictionary in chat_store.find(str(target.get("chat_id",""))).get("messages",[]):
+			if message.id==target.get("user_message_id"):message["audio_route"]="transcribed"
 	if kind=="image.fallback" and _router._tasks.has(task_id):
 		_set_image_notice(_router._tasks[task_id].get("chat_target",{}),L.text("Выбранная модель не поддерживает изображения. Текст отправлен без картинки; модель уведомлена о вложении."))
 	if chat_store == null or not _router._tasks.has(task_id): return
@@ -771,10 +809,12 @@ func chat_history(arguments: Dictionary, chat_id: String) -> Dictionary:
 
 func _observe_usage_ready(data: Dictionary) -> void:
 	if is_instance_valid(vision_support):vision_support.prepare_request(data)
+	if is_instance_valid(audio_service):audio_service.prepare_request(data)
 	if _router != null: _router.note_final_usage_request(data)
 
 func _observe_chat_usage(data: Dictionary) -> void:
 	if is_instance_valid(vision_support):vision_support.record_usage(data)
+	if is_instance_valid(audio_service):audio_service.record_usage(data)
 	if chat_compactor != null: chat_compactor.record_usage(data)
 	if _router != null: _router.record_usage(data)
 

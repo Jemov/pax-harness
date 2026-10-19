@@ -798,5 +798,19 @@
   "pax_harness_d29a65d6af41": "Image input is disabled for this model. Choose Auto or Enabled in Advanced settings.",
   "pax_harness_e65e672a3c88": "The selected model does not support images. Text chat remains available.",
   "pax_harness_28bf6430d491": "Image support could not be confirmed. Text chat is available; you can retry the check later.",
-  "pax_harness_230ec1d8380f": "Checking image support…"
+  "pax_harness_230ec1d8380f": "Checking image support…",
+  "pax_harness_6e700428697d": "Voice message",
+  "pax_harness_03464701153e": "▶ Voice message",
+  "pax_harness_a56de95ad549": " · %.1f s",
+  "pax_harness_964c4040a473": "Recording… Click the microphone again to stop. Up to 30 seconds.",
+  "pax_harness_f3fc474adbcc": "Could not record audio. Check your microphone in Settings → Voice.",
+  "pax_harness_e15e411f5ca5": "No voice was heard. Check the selected microphone and microphone permissions.",
+  "pax_harness_2b77deff0ca4": "Microphone input is disabled in the game. Check Settings → Voice and Windows microphone permission.",
+  "pax_harness_f1c425956d9e": "Speech recognition is unavailable. Configure it in Settings → Voice. Your recording is saved and can be sent again.",
+  "pax_harness_f12ff40b5fd2": "Speech could not be understood. Listen to the recording or record it again.",
+  "pax_harness_86fb050ea982": "Listen to recording",
+  "pax_harness_b98f8a1211ba": "Remove recording",
+  "pax_harness_623c4d627846": "Audio sent directly to the model",
+  "pax_harness_87078e1990d3": "Speech transcribed and sent as text",
+  "pax_harness_a94062fe3c5e": "Could not transcribe your voice. The recording is saved. Check Settings → Voice and try sending it again."
 }

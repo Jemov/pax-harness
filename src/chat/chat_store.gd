@@ -144,7 +144,7 @@ func history(id: String, options: Dictionary = {}) -> Dictionary:
 		"has_more":end-page.size()>0,"next_offset":offset+page.size(),"order":"newest_page_in_chronological_order",
 		"note":"Only the captured chat is searched. These are prior messages, not proof of current game facts."}
 
-func begin(question: String, date: String, chat_id: String = "", refs: Array = [], origin: Dictionary = {}, existing_user: String = "", images: Array = []) -> Dictionary:
+func begin(question: String, date: String, chat_id: String = "", refs: Array = [], origin: Dictionary = {}, existing_user: String = "", images: Array = [], audio: Array = []) -> Dictionary:
 	if chat_id == "" and current().is_empty(): create()
 	var id: String = selected if chat_id == "" else chat_id
 	var chat: Dictionary = find(id)
@@ -156,21 +156,21 @@ func begin(question: String, date: String, chat_id: String = "", refs: Array = [
 		chat["title_pending"] = true
 	chat.updated = Time.get_unix_time_from_system()
 	chat.draft = ""
-	chat["draft_refs"] = []; chat["draft_images"] = []
+	chat["draft_refs"] = []; chat["draft_images"] = []; chat["draft_audio"]=[]
 	var headers: Array = reference_headers(refs)
 	var user_id: String = existing_user
 	if user_id == "":
 		user_id = _id("message:")
-		chat.messages.append({"id":user_id,"role":"user","text":question,"date":date,"status":"complete","events":[],"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true)})
+		chat.messages.append({"id":user_id,"role":"user","text":question,"date":date,"status":"complete","events":[],"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true),"audio":audio.duplicate(true)})
 	else:
 		for row: Dictionary in chat.messages:
 			if row.id == user_id:
 				row.status = "complete"
-				headers = row.get("references",[]).duplicate(true); images=row.get("images",[]).duplicate(true)
+				headers = row.get("references",[]).duplicate(true); images=row.get("images",[]).duplicate(true); audio=row.get("audio",[]).duplicate(true)
 	var message_id: String = _id("message:")
 	chat.messages.append({"id":message_id,"role":"assistant","text":"","date":date,"status":"running","events":[],"started_ms":Time.get_ticks_msec(),"elapsed_ms":0})
 	changed.emit()
-	return {"chat_id":id,"message_id":message_id,"user_message_id":user_id,"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true)}
+	return {"chat_id":id,"message_id":message_id,"user_message_id":user_id,"references":headers,"origin":origin.duplicate(true),"images":images.duplicate(true),"audio":audio.duplicate(true)}
 
 func reference_headers(ids: Array) -> Array:
 	var rows: Array = []
@@ -382,15 +382,16 @@ func export_chat(id: String, format: String = "markdown") -> String:
 func checkpoint_message(summary: String) -> Dictionary:
 	return {"who":"ВИ","what":"Earlier conversation checkpoint. Historic context, not proof of current world facts:\n<compacted-summary>\n"+summary+"\n</compacted-summary>"}
 
-func enqueue_user(text: String, date: String, refs: Array = [], images: Array = []) -> bool:
+func enqueue_user(text: String, date: String, refs: Array = [], images: Array = [], audio: Array = []) -> bool:
+	if text.strip_edges().is_empty() and not audio.is_empty():text=L.text("Голосовое сообщение")
 	if text.strip_edges().is_empty() and not images.is_empty(): text=L.text("Рассмотри прикреплённое изображение.")
 	if text.strip_edges().is_empty() or current().is_empty(): return false
 	if deliveries.filter(func(delivery: Dictionary): return delivery.get("status") == "queued").size() >= 8: return false
 	var chat: Dictionary = current(); var user_id: String = _id("message:"); var delivery_id: String = _id("delivery:")
 	var headers: Array = reference_headers(refs)
-	chat.messages.append({"id":user_id,"role":"user","text":text,"date":date,"status":"queued","events":[],"references":headers,"origin":{},"images":images.duplicate(true),"queue_entry":true})
-	deliveries.append({"id":delivery_id,"key":delivery_id,"source_id":"","target_id":chat.id,"user_message_id":user_id,"source_message_id":"","status":"queued","text":text,"origin":{},"references":headers,"images":images.duplicate(true)})
-	chat.draft = ""; chat["draft_refs"] = []; chat["draft_images"]=[]; changed.emit(); return true
+	chat.messages.append({"id":user_id,"role":"user","text":text,"date":date,"status":"queued","events":[],"references":headers,"origin":{},"images":images.duplicate(true),"audio":audio.duplicate(true),"queue_entry":true})
+	deliveries.append({"id":delivery_id,"key":delivery_id,"source_id":"","target_id":chat.id,"user_message_id":user_id,"source_message_id":"","status":"queued","text":text,"origin":{},"references":headers,"images":images.duplicate(true),"audio":audio.duplicate(true)})
+	chat.draft = ""; chat["draft_refs"] = []; chat["draft_images"]=[]; chat["draft_audio"]=[]; changed.emit(); return true
 
 func cancel_queued(message_id: String) -> void:
 	for delivery: Dictionary in deliveries:

@@ -2,7 +2,7 @@ extends RefCounted
 const Wav=preload("res://mods/pax_harness/src/audio/audio_wav.gd")
 static func valid(handle: Variant) -> bool:
 	if not handle is Dictionary or handle.size()!=6:return false
-	return handle.get("id") is String and RegEx.create_from_string("^audio_[a-f0-9]{64}$").search(handle.id)!=null and handle.get("mime_type")=="audio/wav" and handle.get("name") is String and handle.name.length()<=100 and (handle.get("seconds") is float or handle.get("seconds") is int) and is_finite(float(handle.seconds)) and handle.seconds>0 and handle.seconds<=Wav.MAX_SECONDS and (handle.get("byte_size") is int or handle.get("byte_size") is float) and handle.byte_size==floorf(float(handle.byte_size)) and handle.byte_size>44 and handle.byte_size<=Wav.MAX_BYTES and handle.get("source")=="user_audio"
+	return handle.get("id") is String and RegEx.create_from_string("^audio_[a-f0-9]{64}$").search(handle.id)!=null and handle.get("mime_type")=="audio/wav" and handle.get("name") is String and handle.name.length()<=100 and (handle.get("seconds") is float or handle.get("seconds") is int) and is_finite(float(handle.seconds)) and handle.seconds>0 and (handle.get("byte_size") is int or handle.get("byte_size") is float) and handle.byte_size==floorf(float(handle.byte_size)) and handle.byte_size>44 and handle.byte_size<=Wav.MAX_BYTES and handle.seconds<=float(handle.byte_size)/(Wav.RATE*2) and handle.get("source")=="user_audio"
 static func contains_audio(query: Array) -> bool:
 	if query.size()!=3 or not query[2] is Dictionary:return false
 	for field: String in ["messages","contents"]:
@@ -25,7 +25,6 @@ static func apply(query: Array, handles: Array, resolver: Callable) -> Dictionar
 	elif (query[0].ends_with(":generateContent") or query[0].ends_with(":streamGenerateContent")) and body.get("contents") is Array:
 		body.contents.append({"role":"user","parts":[{"inlineData":{"mimeType":"audio/wav","data":encoded}}]})
 	else:return {"ok":false,"code":"audio.unsupported_transport"}
-	if JSON.stringify(body).to_utf8_buffer().size()>8*1024*1024:return {"ok":false,"code":"audio.request_too_large"}
 	return {"ok":true,"query":result}
 static func unsupported(response: Dictionary) -> bool:
 	if not response.has("error"):return false

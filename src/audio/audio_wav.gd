@@ -1,8 +1,8 @@
 extends RefCounted
-## Bounded PCM input; no external paths, codecs or executable resources.
+## PCM input; RIFF's own format limit, no recording-duration limit.
 const RATE=16000
-const MAX_SECONDS=30
-const MAX_BYTES=2*1024*1024
+const MAX_BYTES=0xffffffff+8
+const MAX_BASE64_CHARS=((MAX_BYTES+2)/3)*4
 static func inspect(bytes: PackedByteArray) -> Dictionary:
 	if bytes.size()<44 or bytes.size()>MAX_BYTES or bytes.slice(0,4).get_string_from_ascii()!="RIFF" or bytes.slice(8,12).get_string_from_ascii()!="WAVE":return {"ok":false,"code":"audio.invalid_wav"}
 	if bytes.decode_u32(4)+8!=bytes.size():return {"ok":false,"code":"audio.invalid_wav"}
@@ -19,11 +19,13 @@ static func inspect(bytes: PackedByteArray) -> Dictionary:
 		offset+=size_+(size_%2)
 	if format_.get("encoding")!=1 or format_.get("bits")!=16 or format_.get("channels") not in [1,2] or format_.get("rate",0)<8000 or format_.get("rate",0)>96000 or pcm.is_empty():return {"ok":false,"code":"audio.pcm_required"}
 	var frames: int=pcm.size()/(2*format_.channels)
-	if pcm.size()%(2*format_.channels)!=0 or float(frames)/format_.rate>MAX_SECONDS:return {"ok":false,"code":"audio.too_long"}
+	if pcm.size()%(2*format_.channels)!=0:return {"ok":false,"code":"audio.invalid_wav"}
 	return {"ok":true,"pcm":pcm,"rate":format_.rate,"channels":format_.channels,"seconds":float(frames)/format_.rate}
 static func encode(samples: PackedFloat32Array, rate: int) -> PackedByteArray:
-	if rate<8000 or rate>192000 or samples.is_empty() or samples.size()>rate*MAX_SECONDS:return PackedByteArray()
-	var count: int=mini(RATE*MAX_SECONDS,int(samples.size()*float(RATE)/rate));var bytes:=PackedByteArray();bytes.resize(44+count*2)
+	if rate<8000 or rate>192000 or samples.is_empty():return PackedByteArray()
+	var count: int=int(samples.size()*float(RATE)/rate)
+	if 44+count*2>MAX_BYTES:return PackedByteArray()
+	var bytes:=PackedByteArray();bytes.resize(44+count*2)
 	for pair: Array in [[0,"RIFF"],[8,"WAVE"],[12,"fmt "],[36,"data"]]:
 		var name_: PackedByteArray=pair[1].to_ascii_buffer()
 		for i: int in 4:bytes[int(pair[0])+i]=name_[i]

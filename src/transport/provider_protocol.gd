@@ -1,4 +1,5 @@
 extends RefCounted
+const AudioWav=preload("res://mods/pax_harness/src/audio/audio_wav.gd")
 ## Pure protocol adaptation: no provider/model allowlists, credentials, I/O or cache.
 const MAX_BUDGET := 10000000
 const MAX_ERROR_BYTES := 65536
@@ -47,7 +48,7 @@ static func _chat_content(content: Variant, allow_images: bool) -> bool:
 		if block.size() == 2 and block.get("type") == "text" and block.get("text") is String: continue
 		if block.size()==2 and block.get("type")=="input_audio" and block.get("input_audio") is Dictionary:
 			var audio: Dictionary=block.input_audio
-			if audio.size()==2 and audio.get("format")=="wav" and audio.get("data") is String and audio.data.length()<=2800000 and RegEx.create_from_string("^[A-Za-z0-9+/]+={0,2}$").search(audio.data)!=null:continue
+			if audio.size()==2 and audio.get("format")=="wav" and audio.get("data") is String and audio.data.length()<=AudioWav.MAX_BASE64_CHARS and RegEx.create_from_string("^[A-Za-z0-9+/]+={0,2}$").search(audio.data)!=null:continue
 		if _image_source(block).is_empty(): return false
 	return true
 

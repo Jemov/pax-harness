@@ -7,6 +7,7 @@ const Asr=preload("res://mods/pax_harness/src/audio/native_asr.gd")
 const Catalog=preload("res://mods/pax_harness/src/transport/provider_catalog.gd")
 const Protocol=preload("res://mods/pax_harness/src/transport/provider_protocol.gd")
 const ChatStore=preload("res://mods/pax_harness/src/chat/chat_store.gd")
+const Recorder=preload("res://mods/pax_harness/src/audio/audio_recorder.gd")
 class Provider extends Node:
 	var model:="future-audio-model"
 	var base_url:="https://audio.invalid/v1"
@@ -76,6 +77,22 @@ func run() -> void:
 	var game:=Game.new();game.main=world;owner._game=game
 	var service:=Service.new();owner.add_child(service);owner.audio_service=service;service.setup(owner)
 	var imported: Dictionary=service.store.import_bytes(bytes,"voice");check(imported.ok,"audio persists through JSON numeric round trip")
+	var long_samples:=PackedFloat32Array();long_samples.resize(71*Wav.RATE);long_samples.fill(0.1);long_samples[-1]=0.7
+	var recorder:=Recorder.new();root.add_child(recorder);recorder.set_process(false);recorder.recording=true;recorder._rate=Wav.RATE;recorder._samples=long_samples
+	var recordings: Array=[];recorder.completed.connect(func(value: Dictionary):recordings.append(value))
+	recorder._process(71.0)
+	check(recorder.recording and recordings.is_empty(),"recording continues past 30 seconds without automatic completion")
+	recorder.stop()
+	check(not recorder.recording and recordings.size()==1 and recordings[0].ok,"only explicit Stop completes a long recording")
+	var long_read: Dictionary=Wav.inspect(recordings[0].bytes)
+	check(long_read.ok and long_read.seconds==71.0 and long_read.pcm.decode_s16(long_read.pcm.size()-2)>22000,"long recording retains final audio instead of truncating at 30 seconds")
+	var long_saved: Dictionary=service.store.import_bytes(recordings[0].bytes,"long voice")
+	check(long_saved.ok and long_saved.attachment.byte_size>2*1024*1024 and service.store.resolve(long_saved.attachment).ok,"long WAV survives previous attachment-size limit and JSON persistence")
+	var long_query: Array=["https://audio.invalid/v1/chat/completions",[],{"model":"future-audio-model","messages":[{"role":"user","content":"long voice"}],"response_format":{"type":"json_object"}}]
+	var long_applied: Dictionary=Payload.apply(long_query,[long_saved.attachment],service.store.resolve)
+	var long_recovered: Dictionary=Protocol.recover(long_applied.query,400,JSON.stringify({"error":{"message":"response_format is not supported","param":"response_format"}}).to_utf8_buffer())
+	check(long_applied.ok and not long_recovered.is_empty() and Payload.contains_audio(long_recovered.query),"native transport and format repair preserve audio beyond the old base64-size limit")
+	recorder.queue_free()
 	var handle: Dictionary=JSON.parse_string(JSON.stringify(imported.attachment));check(Payload.valid(handle) and service.store.resolve(handle).ok,"saved handle survives restart")
 	check(not JSON.stringify(handle).contains("base64") and not JSON.stringify(handle).contains("RIFF"),"history metadata contains no WAV bytes")
 	var bad: Dictionary=handle.duplicate();bad.id="../../file";check(not service.store.resolve(bad).ok,"attachment cannot name a filesystem path")
@@ -104,6 +121,19 @@ func run() -> void:
 	world.hearing.finish("recognized words");await process_frame;await process_frame
 	check(owner.result.ok and not owner.result.native and owner.result.text=="recognized words","text fallback preserves recognized speech")
 	check(world.hearing.consumers==0 and world.hearing.recognized.is_connected(world.hearing.consumer),"native hidden chat receives nothing; signal consumers restored")
+	var calls_before: int=world.hearing.calls
+	owner.begin({"chat_id":"qa","message_id":"long-answer","audio":[long_saved.attachment]});await process_frame
+	for fragment: String in ["alpha beta","beta gamma","gamma delta","delta omega"]:
+		check(world.hearing.recognizing and world.hearing._buffer.size()<=int(AudioServer.get_mix_rate())*20,"long speech is recognized sequentially without shortening the recording")
+		world.hearing.finish(fragment);await process_frame;await process_frame
+	check(owner.result.ok and owner.result.text=="alpha beta gamma delta omega" and world.hearing.calls==calls_before+4,"all chunks join in order and overlapping words are not repeated")
+	long_samples.resize(71*Wav.RATE);long_samples.fill(0.0)
+	for index: int in Wav.RATE:long_samples[-1-index]=0.2
+	var late_clip: Dictionary=service.store.import_bytes(Wav.encode(long_samples,Wav.RATE),"late speech")
+	calls_before=world.hearing.calls;owner.begin({"chat_id":"qa","message_id":"late-answer","audio":[late_clip.attachment]});await process_frame
+	check(world.hearing.calls==calls_before+1 and world.hearing._buffer.size()<int(AudioServer.get_mix_rate())*2,"speech beyond 70 seconds is reached while silent ranges are skipped")
+	world.hearing.finish("last words");await process_frame;await process_frame
+	check(owner.result.ok and owner.result.text=="last words" and world.hearing.recognized.is_connected(world.hearing.consumer),"tail speech completes with native listeners restored")
 	owner.begin(target);await process_frame;service.cancel_all();world.hearing.finish("late speech");await process_frame;await process_frame
 	check(owner.result.code=="cancelled" and world.hearing.consumers==0 and world.hearing.recognized.is_connected(world.hearing.consumer),"late ASR after cancellation cannot send or write hidden inputs")
 	world.hearing.available=false;owner.begin(target);await process_frame

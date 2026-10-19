@@ -12,7 +12,7 @@ Queued messages use a compact row with an attachment thumbnail. The right-hand a
 
 [Русское описание](../README.md)
 
-**Voice:** click the microphone, speak, and click it again to stop. Preview, remove or send the recording with optional text. Clips are limited to 30 seconds. Models with usable audio input receive WAV directly; otherwise Harness uses the recognizer from **Settings → Voice** and sends text. The message shows which route was used. [Details](voice-input.md#english).
+**Voice:** click the microphone, speak, and click it again to stop. Preview, remove or send the recording with optional text. Recording continues until you stop it. Models with usable audio input receive WAV directly; otherwise Harness uses the recognizer from **Settings → Voice** and sends text. The message shows which route was used. [Details](voice-input.md#english).
 
 ## Tools on demand
 

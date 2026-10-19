@@ -27,7 +27,7 @@ func toggle() -> void:
 	_chat=ui.store.selected;_error.clear()
 	var result: Dictionary=recorder.begin()
 	if not result.ok:show_error(result)
-	else:notice.text=L.text("Запись голоса… Нажмите микрофон ещё раз, чтобы завершить. До 30 секунд.");notice.show();level.show();ui._update_send_state()
+	else:notice.text=L.text("Запись голоса… Нажмите микрофон ещё раз, чтобы завершить.");notice.show();level.show();ui._update_send_state()
 func _recorded(result: Dictionary) -> void:
 	level.hide()
 	if not result.get("ok",false):show_error(result);ui._update_send_state();return
@@ -53,7 +53,7 @@ func sync() -> void:
 	var clips: Array=audio();var signature: String=JSON.stringify([clips,L.language()])
 	if L.language()!=_locale:
 		_locale=L.language()
-		if recording():notice.text=L.text("Запись голоса… Нажмите микрофон ещё раз, чтобы завершить. До 30 секунд.")
+		if recording():notice.text=L.text("Запись голоса… Нажмите микрофон ещё раз, чтобы завершить.")
 		elif not _error.is_empty():show_error(_error)
 	if signature==_signature:return
 	_signature=signature

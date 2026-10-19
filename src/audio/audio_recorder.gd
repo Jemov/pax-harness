@@ -24,13 +24,11 @@ func _read() -> void:
 	if available<=0:return
 	var frames: PackedVector2Array=_capture.get_buffer(available);var energy:=0.0
 	for frame: Vector2 in frames:
-		if _samples.size()>=_rate*Wav.MAX_SECONDS:break
 		var sample: float=(frame.x+frame.y)*0.5;_samples.append(sample);energy+=sample*sample
 	if not frames.is_empty():level=sqrt(energy/frames.size())
 func _process(delta: float) -> void:
 	if not recording:return
 	_read();seconds+=delta
-	if seconds>=Wav.MAX_SECONDS:stop()
 func stop() -> void:
 	if not recording:return
 	_read();var bytes: PackedByteArray=Wav.encode(_samples,_rate);_cleanup()

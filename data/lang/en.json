@@ -802,7 +802,7 @@
   "pax_harness_6e700428697d": "Voice message",
   "pax_harness_03464701153e": "▶ Voice message",
   "pax_harness_a56de95ad549": " · %.1f s",
-  "pax_harness_964c4040a473": "Recording… Click the microphone again to stop. Up to 30 seconds.",
+  "pax_harness_964c4040a473": "Recording… Click the microphone again to stop.",
   "pax_harness_f3fc474adbcc": "Could not record audio. Check your microphone in Settings → Voice.",
   "pax_harness_e15e411f5ca5": "No voice was heard. Check the selected microphone and microphone permissions.",
   "pax_harness_2b77deff0ca4": "Microphone input is disabled in the game. Check Settings → Voice and Windows microphone permission.",

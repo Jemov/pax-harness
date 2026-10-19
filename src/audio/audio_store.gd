@@ -14,7 +14,7 @@ func import_bytes(bytes: PackedByteArray, name_: String="Voice message") -> Dict
 func resolve(handle: Dictionary) -> Dictionary:
 	if not Payload.valid(handle):return {"ok":false,"code":"audio.invalid_attachment"}
 	var saved: Variant=owner_mod.load_data(handle.id,{})
-	if not saved is Dictionary or not saved.get("attachment") is Dictionary or saved.attachment.get("id")!=handle.id or not saved.get("wav_base64") is String or saved.wav_base64.length()>2800000:return {"ok":false,"code":"audio.unavailable"}
+	if not saved is Dictionary or not saved.get("attachment") is Dictionary or saved.attachment.get("id")!=handle.id or not saved.get("wav_base64") is String or saved.wav_base64.length()>Wav.MAX_BASE64_CHARS:return {"ok":false,"code":"audio.unavailable"}
 	var bytes: PackedByteArray=Marshalls.base64_to_raw(saved.wav_base64);var digest:=HashingContext.new();digest.start(HashingContext.HASH_SHA256);digest.update(bytes)
 	if bytes.size()!=handle.byte_size or "audio_"+digest.finish().hex_encode()!=handle.id or not Wav.inspect(bytes).ok:return {"ok":false,"code":"audio.invalid_attachment"}
 	return {"ok":true,"bytes":bytes}

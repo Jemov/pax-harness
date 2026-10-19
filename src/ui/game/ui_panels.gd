@@ -19,11 +19,31 @@ static func _hud(main: Node) -> Object:
 	var hud: Variant = main.call("hud")
 	return hud if hud is Object and is_instance_valid(hud) else null
 
+static func _navigation(main: Node, ui: Variant, id: String) -> Dictionary:
+	var native: Variant=Data.property(ui,WINDOWS[id][0])
+	if not is_instance_valid(native) or not native is Control or native.is_queued_for_deletion():return {}
+	var result: Dictionary={"native":native,"window":native,"title":L.text(WINDOWS[id][1])}
+	# UI mods may redirect a native button to their replacement window. Observe
+	# the same live binding the game uses, without granting arbitrary paths or
+	# invoking that button's unrelated callbacks.
+	var button_name: String=str(WINDOWS[id][0]).trim_suffix("_node").trim_suffix("_window")+"_button"
+	var button: Variant=Data.property(ui,button_name)
+	if not is_instance_valid(button) or not button is BaseButton or button.is_queued_for_deletion() or not main.is_ancestor_of(button):return result
+	if not button.has_meta("win"):return result
+	var target: Variant=button.get_meta("win")
+	if not is_instance_valid(target) or not target is Control or target.is_queued_for_deletion() or not target.is_inside_tree() or not main.is_ancestor_of(target) or target.get_viewport()!=main.get_viewport():return result
+	result.window=target
+	if target!=native:
+		var caption: String=str(button.text).strip_edges() if button is Button else ""
+		if caption=="":caption=button.tooltip_text.strip_edges()
+		if caption!="":result.title=caption.left(200)
+	return result
+
 static func definitions() -> Array:
 	var result: Array = []
 	for item: Array in [["ui.panels","List actual available game panels with stable IDs. Read this catalogue before ui.open. No UI change, no screenshots.",{},[]],["ui.open","Open ONE registered game panel or settings page by its stable ID from ui.panels. Navigation only: never clicks confirmation/action buttons, changes settings, loads games, or advances time.",{"panel":{"type":"string","minLength":1,"maxLength":80}},["panel"]],["ui.screenshot","Capture the actual GAME viewport once, with Harness chat temporarily hidden. Only for the exact active model with explicit image-input permission. Returns an expiring image attachment reference; never desktop pixels, file paths or base64 text.",{},[]]]:
 		result.append({"name":item[0],"id":item[0],"description":item[1],"arguments_schema":{"type":"object","properties":item[2],"required":item[3],"additionalProperties":false},"mutates_world":false,"handler_kind":"public_game_facade","capability":"game_ui_navigation" if item[0]!="ui.screenshot" else "explicit_model_vision","after_state":"Actual available panels, visible UI state, or bounded game-viewport image metadata."})
-	result.append({"name":"ui.pointer","id":"ui.pointer","description":"Visible virtual game cursor fallback ONLY when no suitable declared API or observed UI control exists. FIRST receive an actual ui.screenshot image. Use image_id and image-pixel x/y. One action consumes the frame; returns a NEW image for verification. Never uses the system mouse. Player input interrupts. Delivery does not prove gameplay success. Do not click destructive/paid/confirmation actions without player authorization.","arguments_schema":{"type":"object","properties":{"image_id":{"type":"string","minLength":1,"maxLength":64},"action":{"type":"string","enum":["move","click","double_click","drag","scroll"]},"x":{"type":"number","minimum":0},"y":{"type":"number","minimum":0},"to_x":{"type":"number","minimum":0},"to_y":{"type":"number","minimum":0},"button":{"type":"string","enum":["left","right","middle"]},"direction":{"type":"string","enum":["up","down","left","right"]},"amount":{"type":"integer","minimum":1,"maximum":8}},"required":["image_id","action","x","y"],"additionalProperties":false},"mutates_world":true,"handler_kind":"public_game_facade","capability":"explicit_model_vision","after_state":"Input dispatch receipt plus a fresh game image. Read the image and native state to verify effects; never infer a completed transaction from a click."})
+	result.append({"name":"ui.pointer","id":"ui.pointer","description":"Visible virtual game cursor fallback ONLY when no suitable declared API or observed UI control exists. FIRST receive an actual ui.screenshot image. Use image_id and image-pixel x/y. Optional modifiers attach Shift/Ctrl/Alt/Meta to this virtual mouse gesture only (for example Shift+click or Ctrl+drag), without holding system keys. Finish API/navigation first: every mods.invoke invalidates old frames, even a query. One action consumes the frame; returns a NEW image for verification. Never uses the system mouse. Player input interrupts. Delivery does not prove gameplay success. Do not click destructive/paid/confirmation actions without player authorization.","arguments_schema":{"type":"object","properties":{"image_id":{"type":"string","minLength":1,"maxLength":64},"action":{"type":"string","enum":["move","click","double_click","drag","scroll"]},"x":{"type":"number","minimum":0},"y":{"type":"number","minimum":0},"to_x":{"type":"number","minimum":0},"to_y":{"type":"number","minimum":0},"modifiers":{"type":"array","maxItems":4,"items":{"type":"string","enum":["Shift","Ctrl","Alt","Meta"]}},"button":{"type":"string","enum":["left","right","middle"]},"direction":{"type":"string","enum":["up","down","left","right"]},"amount":{"type":"integer","minimum":1,"maximum":8}},"required":["image_id","action","x","y"],"additionalProperties":false},"mutates_world":true,"handler_kind":"public_game_facade","capability":"explicit_model_vision","after_state":"Input dispatch receipt plus a fresh game image. Read the image and native state to verify effects; never infer a completed transaction from a click."})
 	result.append({"name":"ui.keyboard","id":"ui.keyboard","description":"Type Unicode text or an allowed editing/navigation key into the field last focused by ui.pointer. Requires a NEW observed game image_id for each action; returns next screenshot. Viewport only; no system keyboard/clipboard. No Ctrl+C/V/X or system shortcuts. Player input interrupts.","arguments_schema":{"type":"object","properties":{"image_id":{"type":"string","minLength":1,"maxLength":64},"action":{"type":"string","enum":["text","key"]},"text":{"type":"string","minLength":1,"maxLength":2000},"key":{"type":"string","enum":["Enter","Escape","Tab","Backspace","Delete","Left","Right","Up","Down","Home","End","PageUp","PageDown","Space","Ctrl+A","Ctrl+Z","Ctrl+Y"]}},"required":["image_id","action"],"additionalProperties":false},"mutates_world":true,"handler_kind":"public_game_facade","capability":"explicit_model_vision","after_state":"Input dispatch receipt plus a fresh game image; verify the actual field value and outcome."})
 	return result
 
@@ -34,9 +54,9 @@ static func list_panels(game: RefCounted) -> Dictionary:
 	var hud: Object = _hud(main)
 	var rows: Array = []
 	for id: String in WINDOWS:
-		var window: Variant = Data.property(ui,WINDOWS[id][0])
-		if window is Control and is_instance_valid(window) and not window.is_queued_for_deletion() and hud != null and hud.has_method("toggle_window"):
-			rows.append({"id":id,"title":L.text(WINDOWS[id][1]),"visible":window.is_visible_in_tree()})
+		var navigation: Dictionary=_navigation(main,ui,id)
+		if not navigation.is_empty() and hud != null and hud.has_method("toggle_window"):
+			rows.append({"id":id,"title":navigation.title,"visible":navigation.window.is_visible_in_tree()})
 	var menu: Variant = Data.property(ui,"menu_node")
 	if menu is Node and is_instance_valid(menu) and menu.has_method("_settings_screen") and menu.has_method("open_pause"):
 		for id: String in SETTINGS: rows.append({"id":id,"title":L.text(SETTINGS_TITLES[id])})
@@ -57,13 +77,17 @@ static func open_panel(game: RefCounted, id: String) -> Dictionary:
 		if SETTINGS.has(id): menu.call("_settings_screen",SETTINGS[id] if id!="settings" else "нейросеть")
 		else: menu.call("_provider_screen",PROVIDERS[id])
 		return Data.success({"panel":id,"visible":bool(Data.property(menu,"visible")),"navigation_only":true,"settings_modified":false})
-	var window: Control = Data.property(ui,WINDOWS[id][0])
+	var navigation: Dictionary=_navigation(main,ui,id)
+	if navigation.is_empty():return Data.failed("ui.panel_unavailable")
+	var window: Control=navigation.window
+	var native: Control=navigation.native
 	var hud: Object = _hud(main)
 	if menu is Node and bool(Data.property(menu,"visible")):
 		if not menu.has_method("close_button"): return Data.failed("ui.menu_close_unavailable")
 		menu.call("close_button")
 	if not window.visible:
-		if GROUPS.has(id) and hud.has_method("open_from_group"): hud.call("open_from_group",GROUPS[id][0],GROUPS[id][1])
-		else: hud.call("toggle_window",window)
+		if window!=native and native.visible: hud.call("toggle_window",window)
+		elif GROUPS.has(id) and hud.has_method("open_from_group"): hud.call("open_from_group",GROUPS[id][0],GROUPS[id][1])
+		else: hud.call("toggle_window",native)
 	var visible: bool = window.visible
 	return Data.success({"panel":id,"visible":visible,"navigation_only":true,"settings_modified":false}) if visible else Data.failed("ui.panel_not_visible")

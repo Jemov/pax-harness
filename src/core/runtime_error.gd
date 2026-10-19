@@ -27,6 +27,7 @@ static func make(code: String, details: Variant = {}, http_status: int = 0) -> D
 	elif "context" in code or "overflow" in code: category = "context"; message = L.text("Переполнен контекст запроса.")
 	elif "timeout" in code: category = "timeout"; message = L.text("Истекло время ожидания ответа.")
 	elif "loop" in code or "duplicate_action" in code: category = "loop"; message = L.text("Одинаковое действие повторяется без продвижения.")
+	elif code.ends_with("_unchanged"): category = "tool"; message = L.text("Игра оставила состояние без изменений. Действие не подтверждено; проверьте условия в игровом интерфейсе.")
 	elif "stale" in code or "changed" in code or "read_required" in code: category = "conflict"; message = L.text("Сначала прочитайте актуальные данные; их версия могла измениться.")
 	elif "not_enabled" in code or "permission" in code or "forwarded" in code: category = "permission"; message = L.text("Действие недоступно в этом запросе.")
 	elif "schema" in code or "invalid_call" in code or "envelope" in code or "template" in code or "unknown_tool" in code: category = "model_format"; message = L.text("Формат ответа или аргументы не соответствуют схеме.")

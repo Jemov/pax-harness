@@ -33,6 +33,10 @@ func execute(game: RefCounted, tool: String, args: Dictionary, scope: Dictionary
 	var viewport: Viewport=frame.viewport
 	var command: Dictionary=args.duplicate(true)
 	if tool=="ui.pointer":
+		var modifiers: Variant=args.get("modifiers",[])
+		if not modifiers is Array or modifiers.size()>4:return {"ok":false,"code":"ui.input_modifiers_invalid"}
+		for modifier: Variant in modifiers:
+			if not modifier is String or modifier not in ["Shift","Ctrl","Alt","Meta"]:return {"ok":false,"code":"ui.input_modifiers_invalid"}
 		for pair: Array in [["x","y"],["to_x","to_y"]] if args.get("action")=="drag" else [["x","y"]]:
 			if not args.has(pair[0]) or not args.has(pair[1]): return {"ok":false,"code":"ui.input_coordinates_required"}
 			var x: float=float(args[pair[0]]); var y: float=float(args[pair[1]])

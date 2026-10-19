@@ -56,6 +56,16 @@ Receipt fields marked same_as reference identical data in that receipt's result.
 Large world/history lists are paged. Read only the pages relevant to the task;
 use orders.failed for failed plans, resources.read for colony stocks, and
 provinces.read for a known province instead of loading the entire map.
+Read a mod's actual units before interpreting unfamiliar fields: a coefficient
+is not automatically a percentage. Use observed labels/configuration as evidence.
+Mod UI observations intentionally exclude native-owned controls. If an entity or
+action is absent from the relevant paged mod view, do not keep rereading unchanged
+lists. Inspect a fresh game image for native search/filter/scroll controls, use
+virtual input when no suitable observed control exists, then read the mod view
+again. An absent row alone does not establish that the entity/action is missing.
+For virtual input, finish API calls and navigation before taking the source
+image. Every mods.invoke invalidates older frames, even a query. Then use the
+new image_id for one input action in the next batch, without intervening actions.
 If data.format_feedback is present, the previous batch was rejected before any
 of its actions executed. Correct the reported JSON/schema errors, preserving the
 player's task and current grants. arguments contains only that tool's own fields;
@@ -91,7 +101,7 @@ func start(source: Dictionary, scope: Dictionary, registry: RefCounted, send: Ca
 	var token := "agent:%d" % _sequence
 	_sessions[token] = {"source":source.duplicate(true),"scope":Groups.session_scope(scope),"registry":registry,
 		"send":send,"finish":finish,"native":native.duplicate(),"round":0,"count":0,"ledger":{},
-		"receipts":[],"messages":[],"pending":0,"terminal":false,"native_delivered":false,"operations":{},"pending_images":source.get("user_images",[]).duplicate(true)}
+		"receipts":[],"messages":[],"pending":0,"terminal":false,"native_delivered":false,"operations":{},"pending_images":source.get("user_images",[]).duplicate(true),"last_game_image":{}}
 	_step(token)
 	return token
 
@@ -158,8 +168,14 @@ func _step(token: String) -> void:
 	var advertised: Array = []
 	for tool: Dictionary in tools: advertised.append(str(tool.get("name","")))
 	_notify(s,"step.start",{"round":s.round,"advertised_tool_names":advertised,"tool_schema_chars":JSON.stringify(tools).length(),"loaded_tool_groups":s.scope.get("loaded_tool_groups",[]).duplicate()})
-	# Only the immediately following request sees a new capture. Compaction and
-	# saved receipts contain references, never encoded pixels or image blocks.
+	# Keep the latest observed game frame across reads while its input grant is
+	# current. Compaction and saved receipts still contain references, not pixels.
+	s["retained_image_id"] = ""
+	if not s.pending_images.any(func(item: Dictionary): return item.get("source")=="game_viewport") and not s.last_game_image.is_empty():
+		if _game_image_current(s):
+			s.pending_images.append(s.last_game_image.duplicate(true))
+			s.retained_image_id = str(s.last_game_image.id)
+		else: s.last_game_image = {}
 	for image: Dictionary in s.source.get("user_images",[]):
 		if not s.pending_images.any(func(item: Dictionary): return item.id==image.id) and s.pending_images.size()<Vision.MAX_IMAGES: s.pending_images.append(image)
 	packet["tool_schema_chars"] = JSON.stringify(tools).length()
@@ -176,6 +192,10 @@ func _prepare_packet(token: String, packet: Dictionary, force: bool) -> void:
 	if compact.is_valid(): compact.call(packet,_prepared.bind(token,s.pending),s.scope,force)
 	else: _prepared({"ok":true,"packet":packet},token,s.pending)
 
+func _game_image_current(s: Dictionary) -> bool:
+	var check: Callable = s.scope.get("game_image_current",Callable())
+	return not s.get("image_fallback",false) and check.is_valid() and bool(check.call(s.last_game_image))
+
 func _prepared(result: Dictionary, token: String, step: int) -> void:
 	if not _sessions.has(token): return
 	var s: Dictionary = _sessions[token]
@@ -183,6 +203,15 @@ func _prepared(result: Dictionary, token: String, step: int) -> void:
 	if not result.get("ok",false):
 		_end(token,false,str(result.get("code","compaction_failed")))
 		return
+	# Compaction may await another request. Recheck the retained frame at send time.
+	var retained: String = str(s.get("retained_image_id",""))
+	if retained!="" and not _game_image_current(s):
+		s.pending_images = s.pending_images.filter(func(item: Dictionary): return str(item.id)!=retained)
+		if result.packet.has("request_attachments"):
+			result.packet.request_attachments = result.packet.request_attachments.filter(func(item: Dictionary): return str(item.id)!=retained)
+			if result.packet.request_attachments.is_empty(): result.packet.erase("request_attachments")
+		s.last_game_image = {}; s.retained_image_id = ""
+		result.packet.image_token_reserve = Vision.token_reserve(s.pending_images if not s.pending_images.is_empty() else result.packet.get("request_attachments",[]))
 	# Final atomic gate after compaction and before the native transport's fit_in.
 	# Never let native tail-clipping silently damage the JSON/current question.
 	var context_limit: Callable = s.scope.get("context_limit",Callable())
@@ -217,7 +246,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 	# A rejected image request executed no tools. Retry its original text once,
 	# explicitly disclosing that pixels were omitted; never replay tool effects.
 	if not s.last_packet.get("request_attachments",[]).is_empty() and not s.get("image_fallback",false) and Vision.unsupported_error(response):
-		s["image_fallback"]=true; s.source["user_images"]=[]
+		s["image_fallback"]=true; s.source["user_images"]=[]; s.last_game_image={}; s.retained_image_id=""
 		s.source["image_notice"]="The selected API/model rejected image input. The player supplied an image, but you CANNOT see its pixels. Continue using the original text; acknowledge the unavailable image and never invent its appearance."
 		if s.source.has("image_references"): s.source.image_references.available_to_model=false
 		var retry: Dictionary=s.last_packet.duplicate(true); retry.erase("request_attachments"); retry.image_token_reserve=0
@@ -386,6 +415,7 @@ func _answer(response: Dictionary, token: String, step: int) -> void:
 				_end(token,false,"vision_too_many_images")
 				return
 			s.pending_images.append(image.duplicate(true))
+			if image.get("source")=="game_viewport": s.last_game_image=image.duplicate(true)
 		_notify(s,"tool.result",{"id":call.id,"receipt":receipt})
 		if _loop(token,s,operation,str(call.name)): return
 	if calls.is_empty():

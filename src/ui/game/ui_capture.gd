@@ -14,6 +14,8 @@ var _clock: Callable = Time.get_ticks_msec
 signal player_input
 var input_epoch := 0
 var _input_window: WeakRef
+static func changed_frame() -> Dictionary:
+	return {"ok":false,"code":"ui.image_view_changed","result":{"instruction":"The image was consumed or invalidated by input, navigation or another action. Every mods.invoke also invalidates frames, including queries because its public contract does not declare read-only methods. Finish those calls, request ui.screenshot, then issue ONE pointer/keyboard action using the new image_id in the following batch. Do not reuse the old image or combine it with an intervening action."}}
 func watch_viewport(viewport: Viewport) -> void:
 	if not viewport is Window: return
 	if _input_window!=null and _input_window.get_ref()==viewport: return
@@ -41,10 +43,10 @@ func input_frame(id: String, game: RefCounted, selected: Dictionary, consume: bo
 	if not resolved.get("ok",false): return resolved
 	var entry: Dictionary=_images[id]
 	if not entry.get("delivered",false): return {"ok":false,"code":"ui.image_not_observed","result":{"instruction":"Receive and inspect ui.screenshot as an image before virtual input. Text-only or rejected image requests cannot authorize clicks."}}
-	if entry.get("consumed",false) or entry.epoch!=input_epoch: return {"ok":false,"code":"ui.image_view_changed"}
+	if entry.get("consumed",false) or entry.epoch!=input_epoch: return changed_frame()
 	var main: Node=Panels.main_node(game)
 	var viewport: Variant=entry.viewport.get_ref() if entry.viewport!=null else null
-	if main==null or not is_instance_valid(viewport) or viewport!=main.get_viewport() or viewport.get_visible_rect().size!=entry.size: return {"ok":false,"code":"ui.image_view_changed"}
+	if main==null or not is_instance_valid(viewport) or viewport!=main.get_viewport() or viewport.get_visible_rect().size!=entry.size: return changed_frame()
 	if consume:
 		for old: Dictionary in _images.values(): old["consumed"]=true
 	return {"ok":true,"viewport":viewport,"size":entry.size,"width":entry.descriptor.width,"height":entry.descriptor.height,"epoch":input_epoch}

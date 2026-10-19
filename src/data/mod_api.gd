@@ -34,15 +34,21 @@ func signature(mod: Node,method: String) -> Dictionary:
 
 func discover(id: String,mod: Node,args: Dictionary) -> Dictionary:
 	var info:=contract(mod)
-	if info.is_empty(): return Data.failed("mods.api_unavailable")
+	if info.is_empty():
+		var unavailable:=Data.failed("mods.api_unavailable")
+		unavailable.result={"mod":id,"instruction":"This specific mod has no declared api_info/api_has contract. Check mods.list for the intended mod ID before retrying; this says nothing about a different enabled mod. Use mods.inspect for this mod's campaign state or mods.ui for observed controls."}
+		return unavailable
 	var matches: Array=[]
+	var available_total:=0
 	var names: Array=info.methods.keys(); names.sort()
 	var search: String=str(args.get("search","")).to_lower()
 	for key: Variant in names:
-		if not key is String or (search!="" and not key.to_lower().contains(search)): continue
+		if not key is String: continue
 		if not mod.call("api_has",key): continue
 		var spec:=signature(mod,key)
 		if spec.is_empty(): continue
+		available_total+=1
+		if search!="" and not key.to_lower().contains(search):continue
 		matches.append({"method":key,"spec":spec})
 	var offset:=maxi(0,int(args.get("offset",0))); var limit:=clampi(int(args.get("limit",25)),1,100)
 	var rows: Array=[]
@@ -61,7 +67,7 @@ func discover(id: String,mod: Node,args: Dictionary) -> Dictionary:
 			parameters.append(parameter)
 		rows.append({"ref":token,"method":item.method,"parameters":parameters,"minimum_arguments":required,"maximum_arguments":item.spec.args.size(),"api_since":info.methods[item.method]})
 	while refs.size()>512: refs.erase(refs.keys()[0])
-	return Data.success({"mod":id,"api_level":info.get("api_level"),"mod_version":info.get("mod_version"),"config_files":sanitize(info.get("config_files",[]),{"nodes":1024}),"methods":rows,"total":matches.size(),"has_more":offset+rows.size()<matches.size(),"next_offset":offset+rows.size(),"basis":"Methods explicitly exported by this enabled mod's api_info/api_has contract; signatures from its actual script. Availability is not proof of completion. Configuration APIs change mod configuration, not an object's operational switch."})
+	return Data.success({"mod":id,"api_level":info.get("api_level"),"mod_version":info.get("mod_version"),"config_files":sanitize(info.get("config_files",[]),{"nodes":1024}),"methods":rows,"search":search,"available_total":available_total,"total":matches.size(),"has_more":offset+rows.size()<matches.size(),"next_offset":offset+rows.size(),"basis":"Methods explicitly exported by this enabled mod's api_info/api_has contract; signatures from its actual script. Search is a literal substring of the method name: zero matches do not prove absence of a capability. Try a shorter stem or page the unfiltered list before claiming unsupported. Availability is not proof of completion. Configuration APIs change mod configuration, not an object's operational switch."})
 
 func invoke(api: Node,args: Dictionary) -> Dictionary:
 	var token: String=str(args.get("ref",""))

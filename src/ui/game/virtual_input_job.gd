@@ -74,6 +74,10 @@ func _hide(node: Variant) -> void:
 	_hidden.append({"node":weakref(node),"visible":node.visible}); node.hide()
 func _send(event: InputEvent) -> void:
 	event.device=DEVICE;event.set_meta("pax_harness_virtual",true)
+	if event is InputEventMouse:
+		var modifiers: Array=args.get("modifiers",[])
+		event.shift_pressed="Shift" in modifiers;event.ctrl_pressed="Ctrl" in modifiers
+		event.alt_pressed="Alt" in modifiers;event.meta_pressed="Meta" in modifiers
 	var physical: Array=[Input.get_mouse_button_mask(),DisplayServer.mouse_get_position()]
 	_hover_seen.clear()
 	_sent+=1; viewport.push_input(event,true)
@@ -151,6 +155,7 @@ func _run() -> void:
 	if not next.get("ok",false):
 		_finish({"ok":false,"code":"ui.input_readback_failed","result":{"input_dispatched":_sent>0,"capture_error":next.get("code","unknown"),"instruction":"Input may have changed the game. Take a fresh screenshot and inspect before retrying."}});return
 	next.result.merge({"dispatched":true,"completed":false,"input":{"tool":tool,"action":args.action,"events_delivered":_sent,"system_mouse_used":false,"physical_input_unchanged":physical_input_unchanged},"instruction":"Inspect the attached NEW game image to verify the actual effect. Dispatched input is not proof that a deal/order/game action succeeded."})
+	if tool=="ui.pointer":next.result.input["modifiers"]=args.get("modifiers",[]).duplicate()
 	_finish(next)
 func _process(_delta: float) -> void:
 	if finished: return

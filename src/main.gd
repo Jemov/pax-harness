@@ -284,6 +284,11 @@ func resolve_image_attachment(handle: Dictionary, provider: Node) -> Dictionary:
 func mark_game_images_delivered(handles: Array, provider: Node) -> void:
 	if is_instance_valid(_ui_capture): _ui_capture.mark_delivered(handles,vision_context(provider))
 
+func game_image_current(handle: Dictionary) -> bool:
+	if not _game_available() or not is_instance_valid(_ui_capture) or handle.get("source")!="game_viewport": return false
+	if is_instance_valid(_screen_session) and _screen_session.paused: return false
+	return bool(_ui_capture.input_frame(str(handle.get("id","")),_game,vision_context(),false).get("ok",false))
+
 func invalidate_game_input_frames() -> void:
 	if is_instance_valid(_virtual_input): _virtual_input.release_hover()
 	if is_instance_valid(_ui_capture): _ui_capture.invalidate_input_frames()
@@ -844,6 +849,7 @@ func _start_universal_task(task_id: String, source: Dictionary, grants: PackedSt
 	var scope := {"game":task.game,"world_generation":task.generation,"request_id":task_id,"channel":task.channel,"enabled_tools":grants,
 		"chat_id":task.get("chat_target",{}).get("chat_id",""),"message_id":task.get("chat_target",{}).get("message_id",""),"forward_depth":int(task.get("chat_target",{}).get("origin",{}).get("depth",0)),"trace":_chat_event.bind(task_id),"is_current":_router.current.bind(task_id),"completion_current":_router.completion_current.bind(task_id),"retire":_router.retire.bind(task_id)}
 	scope["context_limit"] = chat_context_limit
+	scope["game_image_current"] = game_image_current
 	if task.has("chat_target"):
 		scope["workspace"] = workspace_context.bind(str(task.chat_target.chat_id))
 		scope["chat_context"] = chat_compactor.context_for.bind(str(task.chat_target.chat_id))

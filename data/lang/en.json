@@ -812,5 +812,6 @@
   "pax_harness_b98f8a1211ba": "Remove recording",
   "pax_harness_623c4d627846": "Audio sent directly to the model",
   "pax_harness_87078e1990d3": "Speech transcribed and sent as text",
-  "pax_harness_a94062fe3c5e": "Could not transcribe your voice. The recording is saved. Check Settings → Voice and try sending it again."
+  "pax_harness_a94062fe3c5e": "Could not transcribe your voice. The recording is saved. Check Settings → Voice and try sending it again.",
+  "pax_harness_native_action_unchanged": "The game left the state unchanged. The action is not confirmed; check its requirements in the game interface."
 }

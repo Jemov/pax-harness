@@ -25,11 +25,13 @@ class Surface extends Control:
 	var events: Array=[]
 	var dragged:=Vector2.ZERO
 	var wheel:=0
+	var shifted_clicks:=0
 	func _gui_input(event: InputEvent) -> void:
 		if event is InputEventMouse:
 			events.append(event.duplicate())
 			if event is InputEventMouseMotion and event.button_mask==MOUSE_BUTTON_MASK_LEFT: dragged=event.position
 			if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_WHEEL_DOWN: wheel+=1
+			if event is InputEventMouseButton and event.pressed and event.button_index==MOUSE_BUTTON_LEFT and event.shift_pressed and event.ctrl_pressed:shifted_clicks+=1
 var checks:=0
 var failures: Array=[]
 var owner: Node
@@ -143,6 +145,15 @@ func run() -> void:
 	var scaled: Dictionary=capture.retain(image,game,owner.selected).result.image_attachment;capture.mark_delivered([scaled],owner.selected)
 	result_=await act("ui.pointer",{"image_id":scaled.id,"action":"click","x":120,"y":80})
 	check(result_.get("ok",false) and clicks==2,"image-pixel coordinates map to logical viewport after scaling")
+	check(registry.validate_call("ui.pointer",{"image_id":"x","action":"click","x":1,"y":1,"modifiers":["Shift","Ctrl"]},["ui.pointer"]).ok,"valid modifier gesture passes the actual tool schema validator")
+	check(not registry.validate_call("ui.pointer",{"image_id":"x","action":"click","x":1,"y":1,"modifiers":["Unknown"]},["ui.pointer"]).ok,"only explicit supported modifiers are advertised")
+	handle=await shot()
+	check(virtual.execute(game,"ui.pointer",{"image_id":handle.id,"action":"click","x":250,"y":60,"modifiers":["Unknown"]},{}).code=="ui.input_modifiers_invalid","invalid modifiers rejected before input and frame consumption")
+	result_=await act("ui.pointer",{"image_id":handle.id,"action":"click","x":250,"y":60,"modifiers":["Shift","Ctrl"]})
+	check(result_.get("ok",false) and surface.shifted_clicks==1 and result_.result.input.modifiers==["Shift","Ctrl"],"custom canvas receives real Shift+Ctrl click with explicit receipt")
+	check(not Input.is_key_pressed(KEY_SHIFT) and not Input.is_key_pressed(KEY_CTRL) and result_.result.input.physical_input_unchanged,"gesture modifiers never hold player or system keys")
+	handle=await shot();result_=await act("ui.pointer",{"image_id":handle.id,"action":"click","x":250,"y":60})
+	check(result_.get("ok",false) and surface.shifted_clicks==1,"modifiers do not leak into the next plain click")
 	virtual.release_hover()
 	var popup:=Label.new();popup.text="Hover menu";popup.position=Vector2(500,100);main.add_child(popup);popup.hide()
 	button.mouse_entered.connect(func():popup.show());button.mouse_exited.connect(func():popup.hide())

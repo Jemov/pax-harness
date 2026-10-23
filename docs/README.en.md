@@ -4,7 +4,7 @@
 
 **Artificial worlds and production:** the assistant can author a separate native body with its own model, orbit and 4–40 territories. Normal passenger transports can settle it. Its program can read actual native population and control climate parameters. With Dyson Sphere Program enabled, general operations also read real colony stocks, consume resources and spawn native ships. The agent writes the shipyard queue, costs, timing and controls. Creating a body does not grant settlers or supplies.
 
-An in-game assistant workspace for **Pax Universe 0.31.6**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
+An in-game assistant workspace for **Pax Universe 0.32.6**. Use the model and API connection selected in the game to discuss plans, inspect current information, work with mod data, and create charts, tables and images.
 
 Queued messages use a compact row with an attachment thumbnail. The right-hand actions send a correction now or remove it from the queue. The **…** menu offers editing, moving to a new chat and queue preferences. Click the row to read the full text. Editing holds dispatch; moving to a new chat preserves text and pictures as a draft.
 

@@ -540,13 +540,17 @@ func _network(destination: HTTPRequest, packet: Dictionary) -> void:
 		provider._curl_answer.call_deferred(destination,400,JSON.stringify({"error":{"code":tuned.get("code","manual_generation_settings_invalid"),"message":"; ".join(PackedStringArray(tuned.get("errors",[])))}}).to_utf8_buffer())
 		return
 	query = tuned.query
-	if float(tuned.get("timeout_seconds",0)) > 0: destination.timeout = float(tuned.timeout_seconds)
 	var image_check: Dictionary = _router.validate_images(provider,channel,Vision.contains_images(query))
 	if not image_check.get("ok",false):
 		provider._curl_answer.call_deferred(destination,400,JSON.stringify({"error":{"code":image_check.get("code","vision_input_unavailable"),"message":"; ".join(PackedStringArray(image_check.get("errors",[])))}}).to_utf8_buffer())
 		return
+	if float(tuned.get("timeout_seconds",0)) > 0:
+		if tuning != null and tuning.has_method("set_request_timeout"): tuning.call("set_request_timeout",destination,int(tuned.timeout_seconds))
+		else: destination.timeout = float(tuned.timeout_seconds)
 	var sent: bool = provider.requests()._dispatch_gigachat(destination,JSON.stringify(query[2]),query[1],query[0],channel)
-	if not sent: provider._curl_answer.call_deferred(destination,0,PackedByteArray())
+	if not sent:
+		if tuning != null and tuning.has_method("restore_request_timeout"): tuning.call("restore_request_timeout",destination)
+		provider._curl_answer.call_deferred(destination,0,PackedByteArray())
 
 func _command(args: PackedStringArray) -> String:
 	if not args.is_empty() and args[0] == "open" and is_instance_valid(chat_ui): chat_ui.open()

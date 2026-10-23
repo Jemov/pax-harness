@@ -13,7 +13,9 @@ static func collect(game: Object, _precollected: Dictionary = {}, include_histor
 		"bootstrap_gap":true,"gap_reason":"Only retained records can be recovered. Use orders.failed for the indexed failure archive.","record_order":"source_snapshot_order_not_global_chronology"}
 	if include_history:
 		for row: Dictionary in model.world.chronicle:
-			_record(history,"chronicle","",Data.fields(row,["body","text","tone","weight"]),row.get("day"))
+			var content: Dictionary = Data.fields(row,["body","tone","weight"])
+			content["text"] = Data.clean(row.get("text",row.get("what","")))
+			_record(history,"chronicle","",content,row.get("day"))
 		for row: Dictionary in main.player.assistant_history: _record(history,"dialogue.assistant","",row)
 		for faction: Dictionary in model.factions:
 			for row: Dictionary in faction.get("correspondence",[]): _record(history,"dialogue.faction",str(faction.get("name","")),row,row.get("day"))

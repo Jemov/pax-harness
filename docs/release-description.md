@@ -42,7 +42,7 @@
 
 Новые сущности и программы появляются в партии после нажатия игроком **«Применить»**. Обычные воксельные модели работают без дополнительных компонентов; отдельно висящие разрушаемые объекты требуют **Voxel Tools**. Качество выполнения зависит от выбранной модели. Чтение данных и управление некоторыми функциями модов.
 
-Для Pax Universe 0.31.6–0.31.6.
+Проверено в Pax Universe 0.32.6. В 1.24.2 исправлены открытие и чтение нового штатного дерева исследований, чтение текста хроники и восстановление таймаута запросов. Сценарии проверки включали живую модель, таблицы, графики и действие через интерфейс стороннего мода. Полная совместимость со всеми модами и моделями не заявляется. Поиск в интернете в газете используется для фотографий; исходный URL игра не сохраняет, Harness его не выдумывает.
 
 ## English
 
@@ -88,4 +88,4 @@ Adds a complete harness for the in-game AI in **Pax Universe**: a conversational
 
 New entities and programs enter the campaign after the player clicks **Apply**. Ordinary voxel models need no extra component; detached destructible volumes require **Voxel Tools**. Results depend on the selected model. Read data and control some mod features.
 
-For Pax Universe 0.31.6–0.31.6.
+Tested in Pax Universe 0.32.6. Version 1.24.2 fixes navigation and reading of the new native research tree, chronicle text and request timeout restoration. Tested scenarios include a live model, tables, charts and an action through another mod UI. This is not exhaustive compatibility with every mod or model. Newspaper web search supplies photos; the game does not retain their original URL, and Harness does not invent it.

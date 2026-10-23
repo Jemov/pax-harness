@@ -3,6 +3,7 @@ const Sources = preload("res://mods/pax_harness/src/data/world_sources.gd")
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
 const PersonRecord = preload("res://mods/pax_harness/src/runtime/tools/person_record.gd")
 const Diplomacy = preload("res://mods/pax_harness/src/runtime/tools/diplomacy_tools.gd")
+const ResearchTree = preload("res://mods/pax_harness/src/runtime/tools/research_tree_current.gd")
 const TIME_UNITS={"days":"day_list","weeks":"weeks","months":"months","years":"years","centuries":"centuries","millennia":"millennia","million_years":"млн лет","billion_years":"млрд лет"}
 const METHODS := {"characters.list":"conversation","characters.read":"conversation","characters.connect":"conversation",
 	"orders.read":"orders_panel","orders.submit":"order_evaluation","orders.cancel":"orders_panel","orders.update":"orders_panel",
@@ -12,6 +13,7 @@ const METHODS := {"characters.list":"conversation","characters.read":"conversati
 static func available(game: RefCounted, name: String) -> bool:
 	if name in Diplomacy.NAMES: return Diplomacy.available(game,name)
 	var main: Node = Sources.main_node(game)
+	if name == "research.read" and main != null and ResearchTree.enabled(): return true
 	return main != null and METHODS.has(name) and main.has_method(METHODS[name])
 
 static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary:
@@ -46,7 +48,7 @@ static func execute(game: RefCounted, name: String, a: Dictionary) -> Dictionary
 			var after: Dictionary = _row(model.orders,int(a.id))
 			var changed: bool = after.is_empty() if name == "orders.cancel" else after.get("text") == a.text.strip_edges()
 			return Data.success({"order":after,"completed":false},before,after,name=="orders.update") if changed else Data.failed("tools.native_order_unchanged",before,after)
-		"research.read": return Data.success(Data.clean(model.research_list))
+		"research.read": return Data.success(ResearchTree.read(main) if ResearchTree.enabled() else Data.clean(model.research_list))
 		"research.propose":
 			var accepted: bool = main.research().create(a.text)
 			return Data.success({"accepted":accepted,"completed":false},{},{},true) if accepted else Data.failed("tools.native_research_refused")

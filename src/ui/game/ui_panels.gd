@@ -2,6 +2,7 @@ extends RefCounted
 const L = preload("res://mods/pax_harness/src/localization/localization.gd")
 ## Fixed native navigation only. Never dispatches a model-provided method/path.
 const Data = preload("res://mods/pax_harness/src/runtime/tools/tool_data.gd")
+const ResearchTree = preload("res://mods/pax_harness/src/runtime/tools/research_tree_current.gd")
 const WINDOWS := {"orders":["orders_window","Приказы"],"projects":["projects_window","Проекты"],"development":["development_window_node","Развитие"],"contacts":["contacts_window","Контакты"],"goals":["list_wrapper","Цели и задачи"],"planets":["planets_window","Планеты"],"inbox":["inbox_window","Переписка"],"resources":["resources_window","Ресурсы"],"diplomacy":["diplomacy_window","Дипломатия"],"chronicle":["chronicle_window","Хроника"],"time_machine":["time_machine_window","Машина времени"],"laws":["laws_window","Законы"],"power":["power_window","Власть"],"special_projects":["special_projects_window","Особые проекты"],"mining":["mining_window","Добыча"],"profile":["profile_window","Профиль"],"science":["science_window","Наука"],"world":["world_window","Мировой рынок"],"wars":["wars_window","Войны"],"threats":["threats_window","Угрозы"],"population":["population_window","Население"],"state":["state_window","Государство"],"trade":["trade_window","Торговля"],"output":["output_window","Производство"],"course":["course_window","Курс государства"],"rewind":["rewind_window","Переход во времени"]}
 const GROUPS := {"contacts":["links",0],"inbox":["links",1],"diplomacy":["links",2],"development":["power",0],"wars":["power",1],"threats":["power",2],"trade":["power",3],"output":["power",4],"resources":["power",5],"world":["power",6]}
 const SETTINGS := {"settings":"","settings.game":"game","settings.graphics":"graphics","settings.sound":"sound","settings.voice":"voice","settings.ai":"нейросеть","settings.studio":"studio","settings.data":"data"}
@@ -54,6 +55,9 @@ static func list_panels(game: RefCounted) -> Dictionary:
 	var hud: Object = _hud(main)
 	var rows: Array = []
 	for id: String in WINDOWS:
+		if id == "science" and ResearchTree.enabled():
+			if ResearchTree.can_open(): rows.append({"id":id,"title":ResearchTree.title(main),"visible":ResearchTree.visible(main),"backend":"research_tree"})
+			continue
 		var navigation: Dictionary=_navigation(main,ui,id)
 		if not navigation.is_empty() and hud != null and hud.has_method("toggle_window"):
 			rows.append({"id":id,"title":navigation.title,"visible":navigation.window.is_visible_in_tree()})
@@ -77,6 +81,11 @@ static func open_panel(game: RefCounted, id: String) -> Dictionary:
 		if SETTINGS.has(id): menu.call("_settings_screen",SETTINGS[id] if id!="settings" else "нейросеть")
 		else: menu.call("_provider_screen",PROVIDERS[id])
 		return Data.success({"panel":id,"visible":bool(Data.property(menu,"visible")),"navigation_only":true,"settings_modified":false})
+	if id == "science" and ResearchTree.enabled():
+		if menu is Node and bool(Data.property(menu,"visible")):
+			if not menu.has_method("close_button"): return Data.failed("ui.menu_close_unavailable")
+			menu.call("close_button")
+		return ResearchTree.open(main)
 	var navigation: Dictionary=_navigation(main,ui,id)
 	if navigation.is_empty():return Data.failed("ui.panel_unavailable")
 	var window: Control=navigation.window

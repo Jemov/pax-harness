@@ -41,14 +41,15 @@ func start(provider: Node, destination: HTTPRequest, query: Array, channel: Stri
 		return true
 	prepared = tuned.query
 	var timeout_override: float = float(tuned.get("timeout_seconds",0))
-	if timeout_override > 0: destination.timeout = timeout_override
+	# The destination belongs to native Provider and is reused. Streaming owns a
+	# separate client/request, so keep its timeout in this request's record only.
 	var client := HTTPClient.new()
 	_serial += 1
 	active[channel] = {"client":client,"provider":provider,"destination":destination,
 		"sent":false,"response":false,"sse":false,"code":0,"raw":PackedByteArray(),"parser":Parser.new(),"expected_bytes":-1,"received_bytes":0,
 		"direct":direct,"serial":_serial,"native_http":null,"cache_key":cache_key,"capabilities":learned,"capability_repairs":0,
 		"protected_fields":tuned.get("protected_fields",[]).duplicate(),"manual_rejection":[],"max_wire_bytes":8388608,
-		"attempt":0,"retry_at":0,"retry_after":"","last_activity":Time.get_ticks_msec(),"started":Time.get_ticks_msec(),"timeout":maxf(1 if timeout_override > 0 else 30,destination.timeout)*1000,"last_emit":0,"shown":""}
+		"attempt":0,"retry_at":0,"retry_after":"","last_activity":Time.get_ticks_msec(),"started":Time.get_ticks_msec(),"timeout":(maxf(1,timeout_override) if timeout_override > 0 else maxf(30,destination.timeout))*1000,"last_emit":0,"shown":""}
 	if owner_mod.has_method("vision_context"):active[channel]["vision_identity"]=owner_mod.vision_context(provider)
 	_set_query(active[channel],prepared)
 	var record: Dictionary = active[channel]
